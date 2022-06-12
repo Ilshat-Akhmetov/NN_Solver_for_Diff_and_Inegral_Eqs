@@ -5,17 +5,17 @@ from typing import Callable
 
 class AbstractEquation(abc.ABC):
     @abc.abstractmethod
-    def get_value(self):
+    def get_value(self, value: torch.Tensor, nn_model: torch.nn) -> torch.tensor:
         pass
 
 
 class OnePointInitialCondition(AbstractEquation):
-    def __init__(self, point: float, equation: Callable[[float, float], float]):
+    def __init__(self, point: float, equation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]):
         self.point = torch.Tensor([point])
         self.point.requires_grad = True
         self.equation = equation
 
-    def get_value(self, nn_model):
+    def get_value(self,  nn_model: torch.nn) -> torch.tensor:
         nn_model_value = nn_model(self.point)
         return self.equation(self.point, nn_model_value)
 
@@ -26,7 +26,7 @@ class MainEquation(AbstractEquation):
         left_point: float,
         right_point: float,
         n_points: int,
-        equation: Callable[[float, float], float],
+        equation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ):
         self.n_points = n_points
         self.right_point = right_point
@@ -35,22 +35,22 @@ class MainEquation(AbstractEquation):
         self.train_domain = self.make_train_domain()
         self.valid_domain = self.make_valid_domain()
 
-    def get_value(self, point, nn_model_value):
+    def get_value(self, point, nn_model_value) -> torch.tensor:
         # nn_model_value = nn_model(point)
         residual = self.equation(point, nn_model_value)
         return residual
 
-    def make_train_domain(self):
+    def make_train_domain(self) -> torch.tensor:
         return torch.linspace(self.left_point, self.right_point, self.n_points + 2)[
             1:-1
         ]
 
-    def make_valid_domain(self):
+    def make_valid_domain(self) -> torch.tensor:
         valid_domain = (self.train_domain[1:] + self.train_domain[:-1]) / 2
         return valid_domain
 
-    def get_train_domain(self):
+    def get_train_domain(self) -> torch.tensor:
         return self.train_domain.unsqueeze(dim=1)
 
-    def get_valid_domain(self):
+    def get_valid_domain(self) -> torch.tensor:
         return self.valid_domain.unsqueeze(dim=1)

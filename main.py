@@ -1,6 +1,6 @@
 from nth_derivative import nth_derivative
 from EquationAndDomain import OnePointInitialCondition, MainEquation
-from NN_Solver import NN_Solver
+from NN_Solver import NNSolver
 import torch
 
 # Press the green button in the gutter to run the script.
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     boundary_conditions = [first_init_cond, second_init_cond]
 
     true_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
-    nn_ode_solver = NN_Solver(main_eq, boundary_conditions, true_solution)
+    nn_ode_solver = NNSolver(main_eq, boundary_conditions, true_solution)
     nn_ode_solver.fit()
     nn_ode_solver.make_report()
 

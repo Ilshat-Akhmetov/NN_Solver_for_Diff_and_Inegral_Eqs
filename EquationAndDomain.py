@@ -5,22 +5,52 @@ from typing import Callable
 
 class AbstractEquation(abc.ABC):
     @abc.abstractmethod
-    def get_value(self, value: torch.Tensor, nn_model: torch.nn) -> torch.tensor:
+    def get_residuals_train(self, nn_model: torch.nn) -> torch.tensor:
+        pass
+
+    @abc.abstractmethod
+    def get_residuals_valid(self, nn_model: torch.nn) -> torch.tensor:
+        pass
+
+    @abc.abstractmethod
+    def make_train_domain(self) -> torch.tensor:
+        pass
+
+    @abc.abstractmethod
+    def make_valid_domain(self) -> torch.tensor:
+        pass
+
+    @abc.abstractmethod
+    def get_train_domain(self) -> torch.tensor:
+        pass
+
+    @abc.abstractmethod
+    def get_valid_domain(self) -> torch.tensor:
         pass
 
 
-class OnePointInitialCondition(AbstractEquation):
-    def __init__(self, point: float, equation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]):
+class InitialCondition(abc.ABC):
+    @abc.abstractmethod
+    def get_boundary_residuals(self, nn_model: torch.nn) -> torch.tensor:
+        pass
+
+
+class OnePointInitialCondition(InitialCondition):
+    def __init__(
+        self,
+        point: float,
+        equation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    ):
         self.point = torch.Tensor([point])
         self.point.requires_grad = True
         self.equation = equation
 
-    def get_value(self,  nn_model: torch.nn) -> torch.tensor:
+    def get_boundary_residuals(self, nn_model: torch.nn) -> torch.tensor:
         nn_model_value = nn_model(self.point)
         return self.equation(self.point, nn_model_value)
 
 
-class MainEquation(AbstractEquation):
+class OneDimensionalMainEquation(AbstractEquation):
     def __init__(
         self,
         left_point: float,
@@ -35,15 +65,24 @@ class MainEquation(AbstractEquation):
         self.train_domain = self.make_train_domain()
         self.valid_domain = self.make_valid_domain()
 
-    def get_value(self, point, nn_model_value) -> torch.tensor:
-        # nn_model_value = nn_model(point)
-        residual = self.equation(point, nn_model_value)
+    def get_residuals_train(self, nn_model: torch.nn):
+        domain = self.get_train_domain()
+        nn_model_value = nn_model(domain)
+        residual = self.equation(domain, nn_model_value)
+        return residual
+
+    def get_residuals_valid(self, nn_model):
+        domain = self.get_valid_domain()
+        nn_model_value = nn_model(domain)
+        residual = self.equation(domain, nn_model_value)
         return residual
 
     def make_train_domain(self) -> torch.tensor:
-        return torch.linspace(self.left_point, self.right_point, self.n_points + 2)[
-            1:-1
-        ]
+        train_domain = torch.linspace(
+            self.left_point, self.right_point, self.n_points + 2
+        )[1:-1]
+        train_domain.requires_grad = True
+        return train_domain
 
     def make_valid_domain(self) -> torch.tensor:
         valid_domain = (self.train_domain[1:] + self.train_domain[:-1]) / 2

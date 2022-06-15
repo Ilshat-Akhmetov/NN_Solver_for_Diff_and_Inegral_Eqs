@@ -1,9 +1,9 @@
-from nth_derivative import nth_derivative
-from EquationAndDomain import OnePointInitialCondition, MainEquation
-from NN_Solver import NNSolver
+from utilities import nth_derivative
+from EquationAndDomain import OnePointInitialCondition, OneDimensionalMainEquation
+from TrainerForNNEquationSolver import TrainerForNNEquationSolver
+from ReportMaker import ReportMaker
 import torch
 
-# Press the green button in the gutter to run the script.
 if __name__ == "__main__":
     left_bound = 0
     right_bound = 1
@@ -13,8 +13,10 @@ if __name__ == "__main__":
         + nn_model_value
         + 0.2 * torch.exp(-x / 5) * torch.cos(x)
     )
-    n_points = 20
-    main_eq = MainEquation(left_bound, right_bound, n_points, main_eq_residual)
+    n_points = 100
+    main_eq = OneDimensionalMainEquation(
+        left_bound, right_bound, n_points, main_eq_residual
+    )
 
     first_init_cond_res = lambda x, nn_model_value: nn_model_value - 0
     first_init_cond = OnePointInitialCondition(left_bound, first_init_cond_res)
@@ -27,8 +29,7 @@ if __name__ == "__main__":
     boundary_conditions = [first_init_cond, second_init_cond]
 
     true_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
-    nn_ode_solver = NNSolver(main_eq, boundary_conditions, true_solution)
-    nn_ode_solver.fit()
-    nn_ode_solver.make_report()
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    nn_ode_solver = TrainerForNNEquationSolver(main_eq, boundary_conditions)
+    loss_train, loss_valid, nn_model = nn_ode_solver.fit()
+    report = ReportMaker(true_solution, nn_model, main_eq, loss_train, loss_valid)
+    report.make_report()

@@ -11,6 +11,7 @@ with initial condition
 
 <img src="https://latex.codecogs.com/gif.latex? u'(0) = 3 " /> 
 
+
 then the  neural network will try to minimize following expression:
 
 <img src="https://latex.codecogs.com/gif.latex? argmin_{NN}((NN' +2xNN - 5)^2 + (NN'(0) - 3)^2) " />

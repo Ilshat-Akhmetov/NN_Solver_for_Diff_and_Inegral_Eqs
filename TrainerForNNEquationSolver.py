@@ -7,7 +7,7 @@ import random
 
 class TrainerForNNEquationSolver:
     def __init__(
-        self, main_eq: AbstractEquation, init_conditions: list, n_epochs: int = 200
+            self, main_eq: AbstractEquation, init_conditions: list, n_epochs: int = 200
     ):
         self.set_seed(77)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -36,7 +36,7 @@ class TrainerForNNEquationSolver:
         torch.cuda.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
 
-    def fit(self, verbose: bool=True) -> (torch.Tensor, torch.Tensor, torch.nn):
+    def fit(self, verbose: bool = False) -> (torch.Tensor, torch.Tensor, torch.nn):
         mse_loss_train = torch.zeros(self.num_epochs)
         mse_loss_valid = torch.zeros(self.num_epochs)
         for epoch in range(self.num_epochs):

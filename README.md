@@ -15,11 +15,13 @@ then the  neural network will try to minimize following expression:
 
 $$ argmin_{NN}((NN' +2xNN - 5)^2 + (NN'(0) - 3)^2) $$
 
-on each point of domain x. So we approximate unknown function u with a neural network (NN). 
-As you might guess, this method tries to minimise residuals for main equation and 
-initial conditions simultaneously, altogether.
+on equation's domain. So we approximate unknown function **u** with a neural network (**NN**). 
+As you might guess, this method tries to minimise square residuals for main equation and 
+boundary conditions simultaneously at each epoch, so eventually NN-approximator becomes quite accurate at representing unknown function **u**.
 
-In **NN_Solve_for_ODE_Presentation.ipynb** you may find various examples of NN's
+In **SourceCode** you can take a look at code and find out how classes and methods are implemented.
+
+In **JupyterPresentations\NN_Solve_for_ODE_Presentation.ipynb** you may find various examples of NN's
 application for solving ordinary differential equations. Sometimes it does not converge. 
 I cannot say now why it not always work, this question requires further investigation.
 

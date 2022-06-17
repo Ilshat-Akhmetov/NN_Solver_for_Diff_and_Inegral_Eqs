@@ -1,6 +1,6 @@
 import torch
-from NeuralNetworkFunction import NeuralNetworkFunction
-from EquationAndDomain import AbstractEquation
+from .NeuralNetworkFunction import NeuralNetworkFunction
+from .EquationAndDomain import AbstractEquation
 import numpy as np
 import random
 

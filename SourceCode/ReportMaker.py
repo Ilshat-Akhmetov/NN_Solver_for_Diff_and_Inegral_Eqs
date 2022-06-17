@@ -1,8 +1,8 @@
-from typing import Callable
-from utilities import plot_one_dimensional_function
-from EquationAndDomain import AbstractEquation
-from FunctionErrorMetrics import FunctionErrorMetrics
 import torch
+from typing import Callable
+from .utilities import plot_one_dimensional_function
+from .EquationAndDomain import AbstractEquation, AbstractDomain
+from .FunctionErrorMetrics import FunctionErrorMetrics
 
 
 class ReportMaker:
@@ -13,6 +13,7 @@ class ReportMaker:
             main_eq: AbstractEquation,
             mse_loss_train: torch.Tensor,
             mse_loss_valid: torch.Tensor,
+            domain: AbstractDomain,
             num_epochs: int = 200,
             plot_graph_function: Callable[
                 [torch.Tensor, torch.Tensor, str, str, str], None
@@ -23,13 +24,14 @@ class ReportMaker:
         self.main_eq = main_eq
         self.mse_loss_train = mse_loss_train
         self.mse_loss_valid = mse_loss_valid
+        self.domain = domain
         self.num_epochs = num_epochs
         self.plot_graph_function = plot_graph_function
 
     def make_report(self) -> None:
         self.nn_model.eval()
-        train_domain = self.main_eq.get_train_domain()
-        valid_domain = self.main_eq.get_valid_domain()
+        train_domain = self.domain.get_train_domain()
+        valid_domain = self.domain.get_valid_domain()
         analytical_solution_valid = torch.Tensor(self.true_solution(valid_domain))
         analytical_solution_train = torch.Tensor(self.true_solution(train_domain))
 

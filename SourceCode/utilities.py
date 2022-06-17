@@ -1,7 +1,6 @@
 import torch.autograd
 from torch import ones_like
 import matplotlib.pyplot as plt
-from typing import Callable
 
 
 def nth_derivative(

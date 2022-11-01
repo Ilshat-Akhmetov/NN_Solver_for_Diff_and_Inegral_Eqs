@@ -13,11 +13,12 @@ $$ u'(0) = 3 $$
 
 then the  neural network will try to minimize following expression:
 
-$$ argmin_{NN}((NN' +2xNN - 5)^2 + (NN'(0) - 3)^2) $$
+$$ argmin_{NN}((NN(x)' +2xNN(x) - 5)^2 + (NN(0)' - 3)^2) $$
 
-on equation's domain. So we approximate unknown function **u** with a neural network (**NN**). 
-As you might guess, this method tries to minimise square residuals for main equation and 
-boundary conditions simultaneously at each epoch, so eventually NN-approximator becomes quite accurate at representing unknown function **u**.
+on equation's domain. So we approximate unknown function **u(x)** with a neural network (**NN(x)**). 
+As you might guess, this method tries to minimize square residuals for main equation and 
+boundary conditions simultaneously at each epoch, 
+so eventually NN-approximator becomes quite accurate at representing unknown function **u**.
 
 In **SourceCode** you can take a look at code and find out how classes and methods are implemented.
 

@@ -7,7 +7,7 @@ import random
 
 class TrainerForNNEquationSolver:
     def __init__(
-            self, main_eq: AbstractEquation, init_conditions: list, n_epochs: int = 200
+            self, main_eq: AbstractEquation, init_conditions: list, n_epochs: int = 100
     ):
         self.set_seed(77)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -21,9 +21,11 @@ class TrainerForNNEquationSolver:
         self.nn_model = NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_outputs)
         # self.nn_model.to(self.device)
         self.num_epochs = n_epochs
-        self.optimizer = torch.optim.Adam(
-            self.nn_model.parameters(), lr=5e-3  # , betas=(0.99, 0.9999)
-        )
+        lr = 1e-2
+        # self.optimizer = torch.optim.Adam(
+        #     self.nn_model.parameters(), lr=lr #, betas=(0.99, 0.9999)
+        # )
+        self.optimizer = torch.optim.LBFGS(self.nn_model.parameters(), lr=lr, max_iter=20)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimizer, step_size=20, gamma=1
         )
@@ -60,24 +62,46 @@ class TrainerForNNEquationSolver:
 
     def get_loss(self, phase: str) -> torch.tensor:
         boundary_coefficient = 1.0
-        self.optimizer.zero_grad()
+        # self.optimizer.zero_grad()
+        # with torch.set_grad_enabled(True):
+        #
+        #     if phase == "train":
+        #         residuals = self.main_eq.get_residuals_train(self.nn_model)
+        #     else:
+        #         residuals = self.main_eq.get_residuals_valid(self.nn_model)
+        #     epoch_loss = self.loss(residuals)
+        #
+        #     for init_condition in self.init_conditions:
+        #         boundary_residuals = init_condition.get_boundary_residuals(
+        #             self.nn_model
+        #         )
+        #         epoch_loss += boundary_coefficient * self.loss(boundary_residuals)
+        #
+        #         # backward + optimize only if in training phase
+        #     if phase == "train":
+        #         epoch_loss.backward(retain_graph=True)
 
-        with torch.set_grad_enabled(True):
+        def closure():
+            self.optimizer.zero_grad()
 
-            if phase == "train":
-                residuals = self.main_eq.get_residuals_train(self.nn_model)
-            else:
-                residuals = self.main_eq.get_residuals_valid(self.nn_model)
-            epoch_loss = self.loss(residuals)
+            with torch.set_grad_enabled(True):
 
-            for init_condition in self.init_conditions:
-                boundary_residuals = init_condition.get_boundary_residuals(
-                    self.nn_model
-                )
-                epoch_loss += boundary_coefficient * self.loss(boundary_residuals)
+                if phase == "train":
+                    residuals = self.main_eq.get_residuals_train(self.nn_model)
+                else:
+                    residuals = self.main_eq.get_residuals_valid(self.nn_model)
+                loss_val = self.loss(residuals)
 
-                # backward + optimize only if in training phase
-            if phase == "train":
-                epoch_loss.backward(retain_graph=True)
-                self.optimizer.step()
+                for init_condition in self.init_conditions:
+                    boundary_residuals = init_condition.get_boundary_residuals(
+                        self.nn_model
+                    )
+                    loss_val += boundary_coefficient * self.loss(boundary_residuals)
+
+                    # backward + optimize only if in training phase
+                if phase == "train":
+                    loss_val.backward(retain_graph=True)
+            return loss_val
+        self.optimizer.step(closure=closure)
+        epoch_loss = closure()
         return epoch_loss

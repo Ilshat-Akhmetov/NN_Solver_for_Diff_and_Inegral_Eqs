@@ -30,3 +30,34 @@ def plot_one_dimensional_function(
     ax.axvline(x=0, color="k")
     ax.plot(x_value.cpu().detach().numpy(), y_value.cpu().detach().numpy())
     plt.show()
+
+
+def plot_two_1d_functions(
+    x_value: torch.Tensor,
+    f1_value: torch.Tensor,
+    f2_value: torch.Tensor,
+    title: str,
+    x_label: str,
+    f1_label: str,
+    f2_label: str,
+) -> None:
+    fig, ax = plt.subplots(figsize=(9, 7))
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.grid(True, which="both")
+    ax.axhline(y=0, color="k")
+    ax.axvline(x=0, color="k")
+    ax.plot(
+        x_value.cpu().detach().numpy(),
+        f1_value.cpu().detach().numpy(),
+        color="red",
+        label=f1_label,
+    )
+    ax.plot(
+        x_value.cpu().detach().numpy(),
+        f2_value.cpu().detach().numpy(),
+        color="blue",
+        label=f2_label,
+    )
+    ax.legend(loc="upper right")
+    plt.show()

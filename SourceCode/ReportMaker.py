@@ -1,6 +1,6 @@
 import torch
 from typing import Callable
-from .utilities import plot_one_dimensional_function
+from .utilities import plot_one_dimensional_function, plot_two_1d_functions
 from .EquationAndDomain import AbstractEquation, AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
 
@@ -72,16 +72,16 @@ class ReportMaker:
             )
         )
 
-        abs_error_valid = FunctionErrorMetrics.calculate_absolute_error(
-            analytical_solution_valid, nn_approximation_valid
-        )
-        plot_one_dimensional_function(
-            valid_domain,
-            abs_error_valid,
-            "Absolute error on validation domain: true sol - Approximation",
-            "X",
-            "Error",
-        )
+        # abs_error_valid = FunctionErrorMetrics.calculate_absolute_error(
+        #     analytical_solution_valid, nn_approximation_valid
+        # )
+        # plot_one_dimensional_function(
+        #     valid_domain,
+        #     abs_error_valid,
+        #     "Absolute error on validation domain: true sol - Approximation",
+        #     "X",
+        #     "Error",
+        # )
 
         abs_error_train = FunctionErrorMetrics.calculate_absolute_error(
             analytical_solution_train, nn_approximation_train
@@ -94,26 +94,19 @@ class ReportMaker:
             "Error",
         )
 
-        self.plot_graph_function(
-            valid_domain,
-            analytical_solution_valid,
-            "True Solution",
-            "domain_value",
-            "Function_value",
-        )
-        self.plot_graph_function(
-            valid_domain,
-            nn_approximation_valid,
-            "Approximation",
-            "domain_value",
-            "Function_value",
-        )
+        plot_two_1d_functions(valid_domain,
+                              analytical_solution_valid,
+                              nn_approximation_valid,
+                              "Compare True func Vs Approximation",
+                              "domain",
+                              "True",
+                              "Approximation")
 
         epochs = torch.arange(self.num_epochs)
 
-        plot_one_dimensional_function(
-            epochs, self.mse_loss_valid, "MSE loss validation", "epoch", "loss"
-        )
+        # plot_one_dimensional_function(
+        #     epochs, self.mse_loss_valid, "MSE loss validation", "epoch", "loss"
+        # )
         plot_one_dimensional_function(
             epochs, self.mse_loss_train, "MSE loss train", "epoch", "loss"
         )

@@ -59,5 +59,5 @@ def plot_two_1d_functions(
         color="blue",
         label=f2_label,
     )
-    ax.legend(loc="upper right")
+    ax.legend(loc="best")
     plt.show()

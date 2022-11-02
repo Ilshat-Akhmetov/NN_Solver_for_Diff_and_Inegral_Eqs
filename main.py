@@ -32,7 +32,7 @@ if __name__ == "__main__":
     boundary_conditions = [first_init_cond, second_init_cond]
 
     true_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
-    n_epochs = 100
+    n_epochs = 20
     nn_ode_solver = TrainerForNNEquationSolver(main_eq, boundary_conditions, n_epochs)
     loss_train, loss_valid, nn_model = nn_ode_solver.fit()
     report = ReportMaker(

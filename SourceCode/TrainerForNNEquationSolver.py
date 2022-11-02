@@ -14,16 +14,16 @@ class TrainerForNNEquationSolver:
         self.main_eq = main_eq
         self.init_conditions = init_conditions
         self.batch_size = 1
-        self.loss = lambda x: torch.mean(torch.pow(x, 2))
+        self.square_value = lambda x: torch.mean(torch.pow(x, 2))
         n_inputs = 1
         n_hidden_neurons = 100
         n_outputs = 1
         self.nn_model = NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_outputs)
         # self.nn_model.to(self.device)
         self.num_epochs = n_epochs
-        lr = 1e-2
+        lr = 1e-1
         # self.optimizer = torch.optim.Adam(
-        #     self.nn_model.parameters(), lr=lr #, betas=(0.99, 0.9999)
+        #     self.nn_model.parameters(), lr=lr , betas=(0.99, 0.9999)
         # )
         self.optimizer = torch.optim.LBFGS(self.nn_model.parameters(), lr=lr, max_iter=20)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
@@ -61,7 +61,8 @@ class TrainerForNNEquationSolver:
         return mse_loss_train, mse_loss_valid, self.nn_model
 
     def get_loss(self, phase: str) -> torch.tensor:
-        boundary_coefficient = 1.0
+        zero_val = torch.tensor(0, dtype=torch.float32)
+        boundary_coefficient = 1
         # self.optimizer.zero_grad()
         # with torch.set_grad_enabled(True):
         #
@@ -90,15 +91,17 @@ class TrainerForNNEquationSolver:
                     residuals = self.main_eq.get_residuals_train(self.nn_model)
                 else:
                     residuals = self.main_eq.get_residuals_valid(self.nn_model)
-                loss_val = self.loss(residuals)
+                loss_val = torch.sum(self.square_value(residuals))
+
 
                 for init_condition in self.init_conditions:
                     boundary_residuals = init_condition.get_boundary_residuals(
                         self.nn_model
                     )
-                    loss_val += boundary_coefficient * self.loss(boundary_residuals)
+                    loss_val += torch.sum(boundary_coefficient * self.square_value(boundary_residuals))
 
                     # backward + optimize only if in training phase
+                #loss = self.loss(loss_val, zero_val)
                 if phase == "train":
                     loss_val.backward(retain_graph=True)
             return loss_val

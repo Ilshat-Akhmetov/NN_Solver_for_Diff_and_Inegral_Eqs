@@ -1,7 +1,7 @@
 import torch
 from typing import Callable
 from .utilities import plot_one_dimensional_function, plot_two_1d_functions
-from .EquationAndDomain import AbstractEquation, AbstractDomain
+from .EquationClass import AbstractEquation, AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
 
 
@@ -69,6 +69,12 @@ class ReportMaker:
                 * FunctionErrorMetrics.calculate_mean_average_precision_error(
                     analytical_solution_valid, nn_approximation_valid
                 )
+            )
+        )
+
+        print(
+            "Max residual square loss on train: {} ".format(
+                torch.max(self.mse_loss_train)
             )
         )
 

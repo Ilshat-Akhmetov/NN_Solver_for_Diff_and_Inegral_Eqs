@@ -2,7 +2,7 @@ import unittest
 import sys
 from SourceCode.FunctionErrorMetrics import FunctionErrorMetrics
 from SourceCode.utilities import nth_derivative
-from SourceCode.EquationAndDomain import *
+from SourceCode.EquationClass import *
 from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
 sys.path.append("..")
 

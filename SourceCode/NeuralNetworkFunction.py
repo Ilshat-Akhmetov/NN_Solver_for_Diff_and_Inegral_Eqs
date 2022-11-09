@@ -2,30 +2,11 @@ import torch
 import torch.nn as nn
 
 
-# class NeuralNetworkFunction(nn.Module):
-#     def __init__(self, num_inputs: int = 1, num_hidden: int=100, num_outputs: int=1):
-#         super().__init__()
-#         self.Sequence = nn.Sequential(
-#             nn.Linear(num_inputs, num_hidden),
-#             nn.Tanh(),
-#             nn.Linear(num_hidden, num_hidden),
-#             nn.Tanh(),
-#             nn.Linear(num_hidden, num_hidden),
-#             nn.Tanh(),
-#             nn.Linear(num_hidden, num_hidden),
-#             nn.Tanh(),
-#             nn.Linear(num_hidden, num_outputs),
-#         )
-#
-#     def forward(self, x: torch.Tensor):
-#         return self.Sequence(x)
-
-
 class NeuralNetworkFunction(nn.Module):
     def __init__(self, num_inputs: int = 1,
-                 num_hidden: int = 100,
+                 num_hidden: int = 50,
                  num_outputs: int = 1,
-                 num_layers: int = 4,
+                 num_layers: int = 1,
                  act=nn.Tanh()):
         super().__init__()
 

@@ -1,6 +1,6 @@
 import torch
 from .NeuralNetworkFunction import NeuralNetworkFunction
-from .EquationAndDomain import AbstractEquation
+from .EquationClass import AbstractEquation
 import numpy as np
 import random
 
@@ -14,9 +14,12 @@ class TrainerForNNEquationSolver:
         self.main_eq = main_eq
         self.init_conditions = init_conditions
         self.batch_size = 1
-        self.square_value = lambda x: torch.mean(torch.pow(x, 2))
+        # self.norm = lambda x: torch.mean(torch.abs(x))
+        self.norm = lambda x: torch.pow(x, 2)
+        self.loss = torch.nn.L1Loss()
+        # self.loss = torch.nn.MSELoss()
         n_inputs = 1
-        n_hidden_neurons = 100
+        n_hidden_neurons = 50
         n_outputs = 1
         self.nn_model = NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_outputs)
         # self.nn_model.to(self.device)
@@ -27,7 +30,7 @@ class TrainerForNNEquationSolver:
         # )
         self.optimizer = torch.optim.LBFGS(self.nn_model.parameters(), lr=lr, max_iter=20)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=20, gamma=1
+            self.optimizer, step_size=10, gamma=1
         )
 
     @staticmethod
@@ -61,50 +64,32 @@ class TrainerForNNEquationSolver:
         return mse_loss_train, mse_loss_valid, self.nn_model
 
     def get_loss(self, phase: str) -> torch.tensor:
-        zero_val = torch.tensor(0, dtype=torch.float32)
+        zero_val = torch.tensor(0.0, dtype=torch.float32)
         boundary_coefficient = 1
-        # self.optimizer.zero_grad()
-        # with torch.set_grad_enabled(True):
-        #
-        #     if phase == "train":
-        #         residuals = self.main_eq.get_residuals_train(self.nn_model)
-        #     else:
-        #         residuals = self.main_eq.get_residuals_valid(self.nn_model)
-        #     epoch_loss = self.loss(residuals)
-        #
-        #     for init_condition in self.init_conditions:
-        #         boundary_residuals = init_condition.get_boundary_residuals(
-        #             self.nn_model
-        #         )
-        #         epoch_loss += boundary_coefficient * self.loss(boundary_residuals)
-        #
-        #         # backward + optimize only if in training phase
-        #     if phase == "train":
-        #         epoch_loss.backward(retain_graph=True)
 
         def closure():
             self.optimizer.zero_grad()
+            max_residual_loss = torch.tensor(0.0, dtype=torch.float32)
 
             with torch.set_grad_enabled(True):
-
-                if phase == "train":
-                    residuals = self.main_eq.get_residuals_train(self.nn_model)
-                else:
-                    residuals = self.main_eq.get_residuals_valid(self.nn_model)
-                loss_val = torch.sum(self.square_value(residuals))
-
+                residuals = self.main_eq.get_residuals(self.nn_model, phase)
+                loss_val = self.norm(residuals)
+                total_loss = torch.mean(loss_val)
+                max_residual_loss = torch.max(max_residual_loss, max(loss_val))
 
                 for init_condition in self.init_conditions:
                     boundary_residuals = init_condition.get_boundary_residuals(
                         self.nn_model
                     )
-                    loss_val += torch.sum(boundary_coefficient * self.square_value(boundary_residuals))
+                    boundary_loss = torch.sum(boundary_coefficient * self.norm(boundary_residuals))
+                    max_residual_loss = torch.max(max_residual_loss, boundary_loss)
+                    total_loss += boundary_loss
 
-                    # backward + optimize only if in training phase
-                #loss = self.loss(loss_val, zero_val)
+                total_loss = self.loss(total_loss, zero_val)
                 if phase == "train":
-                    loss_val.backward(retain_graph=True)
-            return loss_val
+                    total_loss .backward()
+            return max_residual_loss
+
         self.optimizer.step(closure=closure)
         epoch_loss = closure()
         return epoch_loss

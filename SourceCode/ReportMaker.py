@@ -1,9 +1,8 @@
 import torch
 from typing import Callable
-from .utilities import plot_one_dimensional_function, plot_two_1d_functions
+from .utilities import plot_1d_function, plot_two_1d_functions
 from .EquationClass import AbstractEquation, AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
-
 
 class ReportMaker:
     def __init__(
@@ -17,7 +16,7 @@ class ReportMaker:
             num_epochs: int = 200,
             plot_graph_function: Callable[
                 [torch.Tensor, torch.Tensor, str, str, str], None
-            ] = plot_one_dimensional_function,
+            ] = plot_1d_function,
     ):
         self.true_solution = true_solution
         self.nn_model = nn_model
@@ -39,7 +38,7 @@ class ReportMaker:
         nn_approximation_train = self.nn_model(train_domain)
 
         print(
-            "Train max absolute error: {}".format(
+            "Train max absolute error |Appr(x)-y(x)|: {}".format(
                 FunctionErrorMetrics.calculate_max_absolute_error(
                     analytical_solution_train, nn_approximation_train
                 )
@@ -47,7 +46,7 @@ class ReportMaker:
         )
 
         print(
-            "Valid max absolute error: {}".format(
+            "Valid max absolute error |Appr(x)-y(x)|: {}".format(
                 FunctionErrorMetrics.calculate_max_absolute_error(
                     analytical_solution_valid, nn_approximation_valid
                 )
@@ -55,7 +54,7 @@ class ReportMaker:
         )
 
         print(
-            "Mean average percentage error on train data: {} %".format(
+            "MAPE on train data: {} %".format(
                 100
                 * FunctionErrorMetrics.calculate_mean_average_precision_error(
                     analytical_solution_train, nn_approximation_train
@@ -64,7 +63,7 @@ class ReportMaker:
         )
 
         print(
-            "Mean average percentage error on validation data: {} %".format(
+            "MAPE on validation data: {} %".format(
                 100
                 * FunctionErrorMetrics.calculate_mean_average_precision_error(
                     analytical_solution_valid, nn_approximation_valid
@@ -73,29 +72,16 @@ class ReportMaker:
         )
 
         print(
-            "Max residual square loss on train: {} ".format(
-                torch.max(self.mse_loss_train)
-            )
+            "Max residual square loss on train at last epoch: {} ".format(self.mse_loss_train[-1])
         )
-
-        # abs_error_valid = FunctionErrorMetrics.calculate_absolute_error(
-        #     analytical_solution_valid, nn_approximation_valid
-        # )
-        # plot_one_dimensional_function(
-        #     valid_domain,
-        #     abs_error_valid,
-        #     "Absolute error on validation domain: true sol - Approximation",
-        #     "X",
-        #     "Error",
-        # )
 
         abs_error_train = FunctionErrorMetrics.calculate_absolute_error(
             analytical_solution_train, nn_approximation_train
         )
-        plot_one_dimensional_function(
+        plot_1d_function(
             train_domain,
             abs_error_train,
-            "Absolute error on train domain: true sol - Approximation",
+            "Absolute error on train data: |Appr(x)-y(x)|",
             "X",
             "Error",
         )
@@ -110,9 +96,6 @@ class ReportMaker:
 
         epochs = torch.arange(self.num_epochs)
 
-        # plot_one_dimensional_function(
-        #     epochs, self.mse_loss_valid, "MSE loss validation", "epoch", "loss"
-        # )
-        plot_one_dimensional_function(
-            epochs, self.mse_loss_train, "MSE loss train", "epoch", "loss"
+        plot_1d_function(
+            epochs, self.mse_loss_train, "Max abs residual value on train", "epoch", "loss"
         )

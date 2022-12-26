@@ -1,5 +1,5 @@
 import torch
-from SourceCode.utilities import nth_derivative
+from SourceCode.utilities import nth_derivative, print_comparison_table
 from SourceCode.EquationClass import OneDimensionalMainEquation
 from SourceCode.DomainClass import OneDimensionalSimpleDomain
 from SourceCode.InitConditionClass import OnePointInitialCondition
@@ -38,3 +38,4 @@ if __name__ == "__main__":
         true_solution, nn_model, main_eq, loss_train, loss_valid, main_domain, n_epochs
     )
     report.make_report()
+    print_comparison_table(main_domain.get_valid_domain(), nn_model, true_solution)

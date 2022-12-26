@@ -7,7 +7,10 @@ import random
 
 class TrainerForNNEquationSolver:
     def __init__(
-            self, main_eq: AbstractEquation, init_conditions: list, n_epochs: int = 100
+            self,
+            main_eq: AbstractEquation,
+            init_conditions: list=None,
+            n_epochs: int = 20
     ):
         self.set_seed(77)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -21,7 +24,9 @@ class TrainerForNNEquationSolver:
         n_inputs = 1
         n_hidden_neurons = 50
         n_outputs = 1
-        self.nn_model = NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_outputs)
+        n_layers = 2
+        nn_model = NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_outputs, n_layers)
+        self.nn_model = nn_model
         # self.nn_model.to(self.device)
         self.num_epochs = n_epochs
         lr = 1e-1
@@ -63,7 +68,7 @@ class TrainerForNNEquationSolver:
                     print("{} Loss: {:.4f}".format(phase, epoch_loss), flush=True)
         return mse_loss_train, mse_loss_valid, self.nn_model
 
-    def get_loss(self, phase: str) -> torch.tensor:
+    def get_loss(self, phase: str) -> float:
         zero_val = torch.tensor(0.0, dtype=torch.float32)
         boundary_coefficient = 1
 
@@ -74,7 +79,7 @@ class TrainerForNNEquationSolver:
             with torch.set_grad_enabled(True):
                 residuals = self.main_eq.get_residuals(self.nn_model, phase)
                 loss_val = self.norm(residuals)
-                total_loss = torch.mean(loss_val)
+                total_loss = torch.sum(loss_val)
                 max_residual_loss = torch.max(max_residual_loss, max(loss_val))
 
                 for init_condition in self.init_conditions:
@@ -88,7 +93,7 @@ class TrainerForNNEquationSolver:
                 total_loss = self.loss(total_loss, zero_val)
                 if phase == "train":
                     total_loss .backward()
-            return max_residual_loss
+            return max_residual_loss.item()
 
         self.optimizer.step(closure=closure)
         epoch_loss = closure()

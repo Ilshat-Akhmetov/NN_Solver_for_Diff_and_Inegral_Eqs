@@ -1,21 +1,24 @@
 import unittest
 import sys
+import torch
 from SourceCode.FunctionErrorMetrics import FunctionErrorMetrics
 from SourceCode.utilities import nth_derivative
-from SourceCode.EquationClass import *
+from SourceCode.EquationClass import OneDimensionalMainEquation
+from SourceCode.DomainClass import OneDimensionalSimpleDomain
+from SourceCode.InitConditionClass import OnePointInitialCondition
 from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
 sys.path.append("..")
 
 
 class NNSolverForODETest(unittest.TestCase):
-    def test_ode1(self):
+    def setUp(self) -> None:
         left_bound = 0
         right_bound = 1
         main_eq_residual = (
             lambda x, nn_model_value: nth_derivative(nn_model_value, x, 2)
-                                      + 0.2 * nth_derivative(nn_model_value, x, 1)
-                                      + nn_model_value
-                                      + 0.2 * torch.exp(-x / 5) * torch.cos(x)
+            + 0.2 * nth_derivative(nn_model_value, x, 1)
+            + nn_model_value
+            + 0.2 * torch.exp(-x / 5) * torch.cos(x)
         )
         n_points = 100
         main_domain = OneDimensionalSimpleDomain(left_bound, right_bound, n_points)
@@ -35,13 +38,18 @@ class NNSolverForODETest(unittest.TestCase):
         nn_ode_solver = TrainerForNNEquationSolver(main_eq, boundary_conditions)
         __, _, nn_model = nn_ode_solver.fit(verbose=False)
         valid_domain = main_domain.get_valid_domain()
-        true_function_value = true_solution(valid_domain)
-        approximation = nn_model(valid_domain)
-        max_abs_error = FunctionErrorMetrics.calculate_max_absolute_error(true_function_value, approximation)
-        benchmark = 5e-5
-        message = f'{max_abs_error} is not less than {benchmark}'
-        self.assertLess(max_abs_error, benchmark, message)
-        mape = 100 * FunctionErrorMetrics.calculate_mean_average_precision_error(true_function_value, approximation)
-        benchmark = 1e-2
-        message = f'{mape} is not less than {benchmark}'
-        self.assertLess(mape, benchmark, message)
+        self.true_function_value = true_solution(valid_domain)
+        self.approximation = nn_model(valid_domain)
+
+    def test_ode1_abs_error(self):
+        max_abs_error = FunctionErrorMetrics.calculate_max_absolute_error(self.true_function_value, self.approximation)
+        abs_err_benchmark = 2e-3
+        message = f'{max_abs_error} is not less than {abs_err_benchmark}'
+        self.assertLess(max_abs_error, abs_err_benchmark, message)
+
+    def test_ode1_mape(self):
+        mape = 100 * FunctionErrorMetrics.calculate_mean_average_precision_error(self.true_function_value,
+                                                                                 self.approximation)
+        mape_benchmark = 2e-3
+        message = f'{mape} is not less than {mape_benchmark}'
+        self.assertLess(mape, mape_benchmark, message)

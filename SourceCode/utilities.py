@@ -1,43 +1,6 @@
 import torch.autograd
-from torch import ones_like
 import matplotlib.pyplot as plt
-from pandas import DataFrame
-from numpy import abs
-from torch import flatten
-
-def print_comparison_table(domain, nn_model, analytical_sol):
-    appr_val = nn_model(domain)
-    analyt_val = analytical_sol(domain)
-
-    domain = flatten(domain)
-    appr_val = flatten(appr_val)
-    analyt_val = flatten(analyt_val)
-
-    appr_val = appr_val.cpu().detach().numpy()
-    analyt_val = analyt_val.cpu().detach().numpy()
-    domain = domain.cpu().detach().numpy()
-    error = abs(appr_val - analyt_val)
-    data = {"Input": domain, "Analytical": analyt_val, "ANN": appr_val, "Error": error}
-    df = DataFrame(data=data)
-    print(df)
-
-
-
-
-def nth_derivative(
-    function_value: torch.Tensor, variable: torch.Tensor, derivatives_degree: int
-) -> torch.Tensor:
-    derivative_value = function_value
-    for i in range(derivatives_degree):
-        derivative_value = torch.autograd.grad(
-            derivative_value,
-            variable,
-            grad_outputs=ones_like(variable),
-            create_graph=True,
-            retain_graph=True,
-        )[0]
-    return derivative_value
-
+from torch import ones_like
 
 def plot_1d_function(
     x_value: torch.Tensor, y_value: torch.Tensor, title: str, x_label: str, y_label: str
@@ -49,7 +12,7 @@ def plot_1d_function(
     ax.grid(True, which="both")
     ax.axhline(y=0, color="k")
     ax.axvline(x=0, color="k")
-    ax.plot(x_value.cpu().detach().numpy(), y_value.cpu().detach().numpy())
+    ax.plot(x_value, y_value)
     plt.show()
 
 
@@ -69,18 +32,32 @@ def plot_two_1d_functions(
     ax.axhline(y=0, color="k")
     ax.axvline(x=0, color="k")
     ax.plot(
-        x_value.cpu().detach().numpy(),
-        f1_value.cpu().detach().numpy(),
+        x_value,
+        f1_value,
         color="lime",
         label=f1_label,
         linewidth=7.0
     )
     ax.plot(
-        x_value.cpu().detach().numpy(),
-        f2_value.cpu().detach().numpy(),
+        x_value,
+        f2_value,
         color="mediumblue",
         label=f2_label,
         linewidth=3.0
     )
     ax.legend(loc="best")
     plt.show()
+
+def nth_derivative(
+    nn_model: torch.Tensor, variable: torch.Tensor, derivatives_degree: int
+) -> torch.Tensor:
+    derivative_value = nn_model(variable)
+    for i in range(derivatives_degree):
+        derivative_value = torch.autograd.grad(
+            derivative_value,
+            variable,
+            grad_outputs = ones_like(variable),
+            create_graph=True,
+            retain_graph=True,
+        )[0]
+    return derivative_value

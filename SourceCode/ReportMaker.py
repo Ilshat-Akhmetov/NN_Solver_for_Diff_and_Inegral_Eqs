@@ -3,6 +3,11 @@ from typing import Callable
 from .utilities import plot_1d_function, plot_two_1d_functions
 from .EquationClass import AbstractEquation, AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
+from numpy import array as np_array
+from numpy import abs
+from numpy import set_printoptions, ravel
+from pandas import DataFrame
+
 
 class ReportMaker:
     def __init__(
@@ -20,22 +25,33 @@ class ReportMaker:
     ):
         self.true_solution = true_solution
         self.nn_model = nn_model
+        self.nn_model.eval()
         self.main_eq = main_eq
-        self.mse_loss_train = mse_loss_train
-        self.mse_loss_valid = mse_loss_valid
+        self.mse_loss_train = self.torch_to_numpy(mse_loss_train)
+        self.mse_loss_valid = self.torch_to_numpy(mse_loss_valid)
         self.domain = domain
         self.num_epochs = num_epochs
         self.plot_graph_function = plot_graph_function
 
+    def torch_to_numpy(self, arr: torch) -> np_array:
+        return arr.cpu().detach().numpy()
+
     def make_report(self) -> None:
-        self.nn_model.eval()
         train_domain = self.domain.get_train_domain()
         valid_domain = self.domain.get_valid_domain()
+
         analytical_solution_valid = torch.Tensor(self.true_solution(valid_domain))
+        analytical_solution_valid = self.torch_to_numpy(analytical_solution_valid)
         analytical_solution_train = torch.Tensor(self.true_solution(train_domain))
+        analytical_solution_train = self.torch_to_numpy(analytical_solution_train)
 
         nn_approximation_valid = self.nn_model(valid_domain)
+        nn_approximation_valid = self.torch_to_numpy(nn_approximation_valid)
         nn_approximation_train = self.nn_model(train_domain)
+        nn_approximation_train = self.torch_to_numpy(nn_approximation_train)
+
+        train_domain = self.torch_to_numpy(train_domain)
+        valid_domain = self.torch_to_numpy(valid_domain)
 
         print(
             "Train max absolute error |Appr(x)-y(x)|: {}".format(
@@ -95,7 +111,22 @@ class ReportMaker:
                               "Approximation")
 
         epochs = torch.arange(self.num_epochs)
-
         plot_1d_function(
             epochs, self.mse_loss_train, "Max abs residual value on train", "epoch", "loss"
         )
+
+    def print_comparison_table(self, domain_data: str = 'train'):
+        assert domain_data in ['train', 'valid']
+        if domain_data == 'train':
+            domain = self.domain.get_train_domain()
+        else:
+            domain = self.domain.get_valid_domain()
+        appr_val = self.nn_model(domain)
+        analyt_val = self.true_solution(domain)
+        domain = self.torch_to_numpy(domain)
+        appr_val = self.torch_to_numpy(appr_val)
+        analyt_val = self.torch_to_numpy(analyt_val)
+        error = ravel(abs(appr_val - analyt_val))
+        data = {"Input": ravel(domain), "Analytical": ravel(analyt_val), "ANN": ravel(appr_val), "Error": ravel(error)}
+        df = DataFrame(data=data)
+        print(df)

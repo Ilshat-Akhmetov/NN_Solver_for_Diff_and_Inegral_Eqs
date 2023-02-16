@@ -1,25 +1,25 @@
-import torch
+import numpy as np
 
 
 class FunctionErrorMetrics:
     @classmethod
     def calculate_absolute_error(
-        cls, analytical_solution: torch.Tensor, approximation: torch.Tensor
+        cls, analytical_solution: np.array, approximation: np.array
     ):
-        return torch.abs(analytical_solution - approximation)
+        return np.abs(analytical_solution - approximation)
 
     @classmethod
     def calculate_max_absolute_error(
-        cls, analytical_solution: torch.Tensor, approximation: torch.Tensor
+        cls, analytical_solution: np.array, approximation: np.array
     ):
-        return torch.max(
+        return np.max(
             cls.calculate_absolute_error(analytical_solution, approximation)
         )
 
     @staticmethod
     def calculate_mean_average_precision_error(
-        analytical_solution: torch.Tensor, approximation: torch.Tensor
+        analytical_solution: np.array, approximation: np.array
     ):
-        return torch.sum(torch.abs(analytical_solution - approximation)) / torch.sum(
-            torch.abs(analytical_solution)
+        return np.sum(np.abs(analytical_solution - approximation)) / np.sum(
+            np.abs(analytical_solution)
         )

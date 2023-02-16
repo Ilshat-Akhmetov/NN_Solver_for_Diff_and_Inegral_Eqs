@@ -9,13 +9,11 @@ class TrainerForNNEquationSolver:
     def __init__(
             self,
             main_eq: AbstractEquation,
-            init_conditions: list=None,
             n_epochs: int = 20
     ):
         self.set_seed(77)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.main_eq = main_eq
-        self.init_conditions = init_conditions
         self.batch_size = 1
         # self.norm = lambda x: torch.mean(torch.abs(x))
         self.norm = lambda x: torch.pow(x, 2)
@@ -69,31 +67,13 @@ class TrainerForNNEquationSolver:
         return mse_loss_train, mse_loss_valid, self.nn_model
 
     def get_loss(self, phase: str) -> float:
-        zero_val = torch.tensor(0.0, dtype=torch.float32)
-        boundary_coefficient = 1
-
+        #zero_val = torch.tensor(0.0, dtype=torch.float32)
         def closure():
             self.optimizer.zero_grad()
-            max_residual_loss = torch.tensor(0.0, dtype=torch.float32)
-
-            with torch.set_grad_enabled(True):
-                residuals = self.main_eq.get_residuals(self.nn_model, phase)
-                loss_val = self.norm(residuals)
-                total_loss = torch.sum(loss_val)
-                max_residual_loss = torch.max(max_residual_loss, max(loss_val))
-
-                for init_condition in self.init_conditions:
-                    boundary_residuals = init_condition.get_boundary_residuals(
-                        self.nn_model
-                    )
-                    boundary_loss = torch.sum(boundary_coefficient * self.norm(boundary_residuals))
-                    max_residual_loss = torch.max(max_residual_loss, boundary_loss)
-                    total_loss += boundary_loss
-
-                total_loss = self.loss(total_loss, zero_val)
-                if phase == "train":
-                    total_loss .backward()
-            return max_residual_loss.item()
+            total_loss, max_residual_norm = self.main_eq.get_residuals_norm(self.nn_model, phase)
+            if phase == "train":
+                total_loss.backward()
+            return max_residual_norm.item()
 
         self.optimizer.step(closure=closure)
         epoch_loss = closure()

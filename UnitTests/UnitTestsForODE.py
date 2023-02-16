@@ -15,31 +15,34 @@ class NNSolverForODETest(unittest.TestCase):
         left_bound = 0
         right_bound = 1
         main_eq_residual = (
-            lambda x, nn_model_value: nth_derivative(nn_model_value, x, 2)
-            + 0.2 * nth_derivative(nn_model_value, x, 1)
-            + nn_model_value
+            lambda x, nn_model: nth_derivative(nn_model, x, 2)
+            + 0.2 * nth_derivative(nn_model, x, 1)
+            + nn_model(x)
             + 0.2 * torch.exp(-x / 5) * torch.cos(x)
         )
         n_points = 100
-        main_domain = OneDimensionalSimpleDomain(left_bound, right_bound, n_points)
-        main_eq = OneDimensionalMainEquation(main_domain, main_eq_residual)
 
-        first_init_cond_res = lambda x, nn_model_value: nn_model_value - 0
+
+        first_init_cond_res = lambda x, nn_model: nn_model(x) - 0
         first_init_cond = OnePointInitialCondition(left_bound, first_init_cond_res)
 
-        second_init_cond_res = lambda x, nn_model_value: nn_model_value - torch.sin(
+        second_init_cond_res = lambda x, nn_model: nn_model(x) - torch.sin(
             torch.Tensor([1])
         ) * torch.exp(torch.Tensor([-0.2]))
         second_init_cond = OnePointInitialCondition(right_bound, second_init_cond_res)
 
         boundary_conditions = [first_init_cond, second_init_cond]
+        main_domain = OneDimensionalSimpleDomain(left_bound, right_bound, n_points)
+        main_eq = OneDimensionalMainEquation(main_domain, main_eq_residual, boundary_conditions)
 
         true_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
-        nn_ode_solver = TrainerForNNEquationSolver(main_eq, boundary_conditions)
+        nn_ode_solver = TrainerForNNEquationSolver(main_eq)
         __, _, nn_model = nn_ode_solver.fit(verbose=False)
         valid_domain = main_domain.get_valid_domain()
         self.true_function_value = true_solution(valid_domain)
+        self.true_function_value = self.true_function_value.cpu().cpu().detach().numpy()
         self.approximation = nn_model(valid_domain)
+        self.approximation = self.approximation.cpu().detach().numpy()
 
     def test_ode1_abs_error(self):
         max_abs_error = FunctionErrorMetrics.calculate_max_absolute_error(self.true_function_value, self.approximation)

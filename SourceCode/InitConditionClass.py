@@ -20,5 +20,5 @@ class OnePointInitialCondition(InitialCondition):
         self.equation = equation
 
     def get_boundary_residuals(self, nn_model: torch.nn) -> torch.tensor:
-        nn_model_value = nn_model(self.point)
-        return self.equation(self.point, nn_model_value)
+        #nn_model_value = nn_model(self.point)
+        return self.equation(self.point, nn_model)

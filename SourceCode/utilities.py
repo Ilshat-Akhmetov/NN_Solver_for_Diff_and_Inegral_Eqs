@@ -2,19 +2,38 @@ import torch.autograd
 import matplotlib.pyplot as plt
 from torch import ones_like
 
-def plot_1d_function(
-    x_value: torch.Tensor, y_value: torch.Tensor, title: str, x_label: str, y_label: str
+def plot_two_curves(
+    x_value: torch.Tensor,
+    f1_value: torch.Tensor,
+    f2_value: torch.Tensor,
+    title: str,
+    x_label: str,
+    f1_label: str,
+    f2_label: str,
 ) -> None:
-    fig, ax = plt.subplots(figsize=(9, 7))
+    #fig = plt.figure(figsize=(9, 7))
+    ax = plt.axes(projection='3d')
     ax.set_title(title)
     ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
     ax.grid(True, which="both")
     ax.axhline(y=0, color="k")
     ax.axvline(x=0, color="k")
-    ax.plot(x_value, y_value)
+    ax.plot3D(
+        *f1_value,
+        x_value,
+        color="lime",
+        label=f1_label,
+        linewidth=7.0
+    )
+    ax.plot3D(
+        *f2_value,
+        x_value,
+        color="mediumblue",
+        label=f2_label,
+        linewidth=3.0
+    )
+    ax.legend(loc="best")
     plt.show()
-
 
 def plot_two_1d_functions(
     x_value: torch.Tensor,
@@ -33,14 +52,14 @@ def plot_two_1d_functions(
     ax.axvline(x=0, color="k")
     ax.plot(
         x_value,
-        f1_value,
+        f1_value[0],
         color="lime",
         label=f1_label,
         linewidth=7.0
     )
     ax.plot(
         x_value,
-        f2_value,
+        f2_value[0],
         color="mediumblue",
         label=f2_label,
         linewidth=3.0

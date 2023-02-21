@@ -15,26 +15,28 @@ class TrainerForNNEquationSolver:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.main_eq = main_eq
         self.batch_size = 1
-        # self.norm = lambda x: torch.mean(torch.abs(x))
         self.norm = lambda x: torch.pow(x, 2)
-        self.loss = torch.nn.L1Loss()
-        # self.loss = torch.nn.MSELoss()
-        n_inputs = 1
-        n_hidden_neurons = 50
-        n_outputs = 1
-        n_layers = 2
-        nn_model = NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_outputs, n_layers)
-        self.nn_model = nn_model
+        self.nn_models = self.get_nn_models()
         # self.nn_model.to(self.device)
         self.num_epochs = n_epochs
         lr = 1e-1
         # self.optimizer = torch.optim.Adam(
         #     self.nn_model.parameters(), lr=lr , betas=(0.99, 0.9999)
         # )
-        self.optimizer = torch.optim.LBFGS(self.nn_model.parameters(), lr=lr, max_iter=20)
+        model_parameters = []
+        for nn_model in self.nn_models:
+            model_parameters += list(nn_model.parameters())
+        self.optimizer = torch.optim.LBFGS(params = model_parameters, lr=lr, max_iter=20)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimizer, step_size=10, gamma=1
         )
+
+    def get_nn_models(self):
+        n_inputs = 1
+        n_hidden_neurons = 50
+        n_layers = 2
+        n = self.main_eq.count_equations()
+        return [NeuralNetworkFunction(n_inputs, n_hidden_neurons, n_layers) for _ in range(n)]
 
     @staticmethod
     def set_seed(seed: int = 77) -> None:
@@ -53,9 +55,9 @@ class TrainerForNNEquationSolver:
             # Each epoch has a training and validation phase
             for phase in ["train", "valid"]:
                 if phase == "train":
-                    self.nn_model.train()  # Set model to training mode
+                    self.nn_models = [nn_model.train() for nn_model in self.nn_models]  # Set model to training mode
                 else:
-                    self.nn_model.eval()  # Set model to evaluate mode
+                    self.nn_models = [nn_model.eval() for nn_model in self.nn_models]  # Set model to evaluate mode
                 epoch_loss = self.get_loss(phase)
                 if phase == "train":
                     self.scheduler.step()
@@ -64,13 +66,12 @@ class TrainerForNNEquationSolver:
                     mse_loss_valid[epoch] = epoch_loss
                 if verbose:
                     print("{} Loss: {:.4f}".format(phase, epoch_loss), flush=True)
-        return mse_loss_train, mse_loss_valid, self.nn_model
+        return mse_loss_train, mse_loss_valid, self.nn_models
 
     def get_loss(self, phase: str) -> float:
-        #zero_val = torch.tensor(0.0, dtype=torch.float32)
         def closure():
             self.optimizer.zero_grad()
-            total_loss, max_residual_norm = self.main_eq.get_residuals_norm(self.nn_model, phase)
+            total_loss, max_residual_norm = self.main_eq.get_residuals_norm(self.nn_models, phase)
             if phase == "train":
                 total_loss.backward()
             return max_residual_norm.item()

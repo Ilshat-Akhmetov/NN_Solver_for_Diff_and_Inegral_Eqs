@@ -5,13 +5,12 @@ import torch.nn as nn
 class NeuralNetworkFunction(nn.Module):
     def __init__(self, num_inputs: int = 1,
                  num_hidden: int = 50,
-                 num_outputs: int = 1,
                  num_layers: int = 1,
                  act=nn.Tanh()):
         super().__init__()
 
         self.layer_in = nn.Linear(num_inputs, num_hidden)
-        self.layer_out = nn.Linear(num_hidden, num_outputs)
+        self.layer_out = nn.Linear(num_hidden, 1)
 
         self.middle_layers = nn.ModuleList(
             [nn.Linear(num_hidden, num_hidden) for _ in range(num_layers)]

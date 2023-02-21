@@ -13,7 +13,7 @@ class IntegralEquations:
         return int_nodes, dx
 
     @staticmethod
-    def FredholmEquation1D(integral_function: Callable,
+    def calculateFredholmEquation1D(integral_function: Callable,
                            nn_model: torch.nn,
                            curr_val: torch.tensor,
                            left_bound: Union[int, float],
@@ -27,7 +27,7 @@ class IntegralEquations:
         return total_val
 
     @staticmethod
-    def VolterraEquation1D(integral_function: Callable,
+    def calculateVolterraEquation1D(integral_function: Callable,
                            nn_model: torch.nn,
                            curr_val: torch.tensor,
                            left_bound: Union[int, float],

@@ -1,5 +1,5 @@
 import torch
-from typing import Callable
+from typing import Callable, List, Union
 from .utilities import plot_two_1d_functions
 from .EquationClass import AbstractEquation, AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
@@ -11,8 +11,8 @@ from pandas import DataFrame
 class ReportMaker:
     def __init__(
             self,
-            true_solutions: Callable[[torch.Tensor], torch.Tensor],
-            nn_models: torch.nn,
+            true_solutions: Union[List[Callable[[torch.tensor], torch.tensor]], Callable[[torch.tensor], torch.tensor]],
+            nn_models: List[Callable[[torch.tensor], torch.tensor]],
             main_eq: AbstractEquation,
             mse_loss_train: torch.Tensor,
             mse_loss_valid: torch.Tensor,
@@ -60,18 +60,18 @@ class ReportMaker:
             result[i] = func(domain)
         return result
 
-    def get_domain_target(self, domain_data: str = 'train'):
+    def get_domain_target(self, domain_data: str = 'train') -> (torch.tensor, torch.tensor, torch.tensor):
         assert domain_data in ['train', 'valid']
         if domain_data == 'train':
             domain = self.domain.get_train_domain()
         else:
             domain = self.domain.get_valid_domain()
         appr_val = ReportMaker.get_func_value(self.nn_models, domain)
-        analyt_val = ReportMaker.get_func_value(self.true_solutions, domain)
+        analytical_val = ReportMaker.get_func_value(self.true_solutions, domain)
         domain = ReportMaker.torch_to_numpy(domain)
         appr_val = ReportMaker.torch_to_numpy(appr_val)
-        analyt_val = ReportMaker.torch_to_numpy(analyt_val)
-        return domain, appr_val, analyt_val
+        analytical_val = ReportMaker.torch_to_numpy(analytical_val)
+        return domain, appr_val, analytical_val
 
     def make_report(self) -> None:
         train_domain, nn_approximation_train, analytical_solution_train = self.get_domain_target()
@@ -140,23 +140,23 @@ class ReportMaker:
                                     "True",
                                     "Approximation")
 
-    def print_comparison_table(self, domain_data: str = 'train', filename='comparison.csv'):
+    def print_comparison_table(self, domain_data: str = 'train', filename='comparison.csv') -> None:
         if domain_data == "train":
             print("train data")
-            domain, appr_val, analyt_val = self.get_domain_target()
+            domain, appr_val, analytical_val = self.get_domain_target()
         else:
             print("valid data")
-            domain, appr_val, analyt_val = self.get_domain_target("valid")
-        error = FunctionErrorMetrics.calculate_absolute_error(appr_val, analyt_val)
-        data = {}
+            domain, appr_val, analytical_val = self.get_domain_target("valid")
+        error = FunctionErrorMetrics.calculate_absolute_error(appr_val, analytical_val)
+        data = dict()
         data["Input"] = np.ravel(domain)
-        n_outputs = len(analyt_val)
+        n_outputs = len(analytical_val)
         if n_outputs == 1:
-            data["Analytical"] = np.ravel(analyt_val)
+            data["Analytical"] = np.ravel(analytical_val)
             data["ANN"] = np.ravel(appr_val)
         else:
             for i in range(n_outputs):
-                data["Analytical_x{}".format(i + 1)] = np.ravel(analyt_val[i])
+                data["Analytical_x{}".format(i + 1)] = np.ravel(analytical_val[i])
                 data["ANN_x{}".format(i + 1)] = np.ravel(appr_val[i])
         data["Error"] = np.ravel(error)
         df = DataFrame(data=data)

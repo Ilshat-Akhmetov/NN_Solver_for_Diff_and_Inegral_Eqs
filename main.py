@@ -39,6 +39,6 @@ if __name__ == "__main__":
                          main_domain,
                          num_epochs=n_epochs,
                          plot2functions=plot_two_curves,
-                         do_plot_func=False)
+                         do_plot_func=True)
     report.make_report()
     report.print_comparison_table()

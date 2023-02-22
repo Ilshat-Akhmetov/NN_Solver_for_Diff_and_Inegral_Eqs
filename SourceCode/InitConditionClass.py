@@ -1,6 +1,6 @@
 import abc
 import torch
-from typing import Callable, List
+from typing import Callable
 
 
 class InitialCondition(abc.ABC):

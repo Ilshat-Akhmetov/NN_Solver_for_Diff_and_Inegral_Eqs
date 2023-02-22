@@ -16,7 +16,7 @@ then the proposed algorithm will try to find a neural network minimizing the fol
 $$ argmin_{NN}((NN(x)' +2xNN(x) - 5)^2 + (NN(0)' - 3)^2) $$
 
 on equation's domain. So we approximate unknown function **u(x)** with a neural network (**NN(x)**). 
-For inegral equations idea essentially is the same. 
+For integral equations idea essentially is the same. 
 As you might guess this method tries to minimize sum of squares of residuals for main equation and 
 boundary conditions simultaneously at each epoch, 
 so eventually NN-approximator becomes quite accurate at representing unknown function **u**.
@@ -30,5 +30,11 @@ I cannot say now why it not always work, this question requires further investig
 In **JupyterPresentations\Solving_Integral_Equation_with_NN.ipynb** you can find various examples of NN's
 application for solving integral equations.
 
-This version is rather a prototype than a finished project. In future i hope to expand this program on 2 and 3
+In **JupyterPresentations\Solving_System_of_ODE_with_NN.ipynb** you can also find examples of NN's
+application for solving system of ODEs.
+
+Finally, in **JupyterPresentations\Solving_Integro_differential_eqs_with_NN.ipynb** you can see how NN's can
+ be applied to solving integro-differential equations.
+
+This version is rather a prototype than a finished project. In the future I hope to expand this program on 2 and 3
 dimensional cases and an arbitrary system of equations.

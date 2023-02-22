@@ -28,7 +28,7 @@ class OneDimensionalSimpleDomain(AbstractDomain):
     def get_domain_size(self) -> int:
         return self.n_points
 
-    def get_domain_unit(self):
+    def get_domain_unit(self) -> float:
         return self.dx
 
     def make_train_domain(self) -> torch.tensor:

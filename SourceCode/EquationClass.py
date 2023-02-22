@@ -7,10 +7,20 @@ from types import FunctionType
 
 class AbstractEquation(abc.ABC):
     @abc.abstractmethod
-    def get_residuals(self, nn_model: torch.nn, phase: str) -> torch.tensor:
+    def get_residuals(self,
+                      nn_models: torch.nn,
+                      domain: torch.tensor,
+                      equation: Callable) -> torch.tensor:
         raise NotImplementedError
+
     @abc.abstractmethod
-    def get_residuals_norm(self) -> (torch.tensor, torch.tensor):
+    def count_equations(self) -> int:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_residuals_norm(self,
+                           nn_models: torch.nn,
+                           phase: str) -> (torch.tensor, torch.tensor):
         raise NotImplementedError
 
 
@@ -34,10 +44,13 @@ class OneDimensionalMainEquation(AbstractEquation):
             self.boundary_conditions = []
         self.norm = lambda x: torch.pow(x, 2)
 
-    def count_equations(self):
+    def count_equations(self) -> int:
         return len(self.equations)
 
-    def get_residuals(self, nn_models: torch.nn, domain: torch.tensor, equation: Callable) -> torch.tensor:
+    def get_residuals(self,
+                      nn_models: torch.nn,
+                      domain: torch.tensor,
+                      equation: Callable) -> torch.tensor:
         residual = equation(domain, *nn_models)
         return residual
 
@@ -47,7 +60,7 @@ class OneDimensionalMainEquation(AbstractEquation):
             domain = self.domain.get_train_domain()
         else:
             domain = self.domain.get_valid_domain()
-        total_loss = torch.tensor(0.0, dtype=torch.float32)
+        total_loss = torch.tensor(0.0, dtype=torch.float32, requires_grad=False)
         max_res_norm = torch.tensor(0.0, requires_grad=False)
         with torch.set_grad_enabled(True):
             for equation in self.equations:

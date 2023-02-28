@@ -1,44 +1,44 @@
 import torch
 from SourceCode.utilities import nth_derivative
-from SourceCode.EquationClass import OneDimensionalMainEquation
+from SourceCode.EquationClass import MainEquationClass
 from SourceCode.DomainClass import OneDimensionalSimpleDomain
-from SourceCode.IntegralEquations import IntegralEquations
-from SourceCode.InitConditionClass import OnePointInitialCondition
 from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
 from SourceCode.ReportMaker import ReportMaker
 from SourceCode.utilities import plot_two_curves
-from math import pi
 
 if __name__ == "__main__":
     left_bound = 0
-    right_bound = 1
-    main_eq_residual1 = lambda t, x, y: nth_derivative(x, t, 1) + y(t)
-    main_eq_residual2 = lambda t, x, y: nth_derivative(y, t, 1) - x(t) - torch.cos(t)
+    right_bound = 5
+    main_eq_residual1 = lambda t, x, y: nth_derivative(x(t), t, 1) + y(t)
+    main_eq_residual2 = lambda t, x, y: nth_derivative(y(t), t, 1) - x(t) - torch.cos(t)
     main_eq_residuals = [main_eq_residual1, main_eq_residual2]
     n_points = 20
-    true_sol1 = lambda x: -1 / 2 * x * torch.sin(x)
-    true_sol2 = lambda x: 1 / 2 * (x * torch.cos(x) + torch.sin(x))
-    true_solutions = [true_sol1, true_sol2]
     dh = 0.001
     main_domain = OneDimensionalSimpleDomain(left_bound + dh, right_bound, n_points)
 
-    first_init_cond_res = lambda x, nn_model1, nn_model2: nn_model1(x) - 0
-    first_init_cond = OnePointInitialCondition(left_bound, first_init_cond_res)
-
-    second_init_cond_res = lambda x, nn_model1, nn_model2: nn_model2(x) - 0
-    second_init_cond = OnePointInitialCondition(left_bound, second_init_cond_res)
-
-    boundary_conditions = [first_init_cond, second_init_cond]
-
-    main_eq = OneDimensionalMainEquation(main_domain, main_eq_residuals, boundary_conditions)
+    main_eq = MainEquationClass(main_domain, main_eq_residuals)
+    boundary_satisfying_models = [
+        lambda x, model1: x * model1(x),
+        lambda x, model2: x * model2(x),
+    ]
 
     n_epochs = 20
-    nn_ode_solver = TrainerForNNEquationSolver(main_eq)
+    nn_ode_solver = TrainerForNNEquationSolver(main_eq,
+                                               n_epochs=n_epochs,
+                                               act_func=torch.tanh,
+                                               boundary_satisfying_models=boundary_satisfying_models)
     loss_train, loss_valid, nn_models = nn_ode_solver.fit()
-    report = ReportMaker(true_solutions, nn_models, main_eq, loss_train, loss_valid,
+
+    analytical_solution1 = lambda x: -1 / 2 * x * torch.sin(x)
+    analytical_solution2 = lambda x: 1 / 2 * (x * torch.cos(x) + torch.sin(x))
+    analytical_solutions = [analytical_solution1, analytical_solution2]
+    report = ReportMaker(nn_models,
+                         loss_train,
+                         loss_valid,
                          main_domain,
-                         num_epochs=n_epochs,
-                         plot2functions=plot_two_curves,
-                         do_plot_func=True)
-    report.make_report()
+                         compare_to_functions=plot_two_curves,
+                         analytical_solutions=analytical_solutions
+                         )
+    report.print_loss_history()
+    report.compare_appr_with_analytical()
     report.print_comparison_table()

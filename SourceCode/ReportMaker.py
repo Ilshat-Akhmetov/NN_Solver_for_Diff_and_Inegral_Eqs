@@ -1,144 +1,133 @@
 import torch
 from typing import Callable, List, Union
-from .utilities import plot_two_1d_functions
-from .EquationClass import AbstractEquation, AbstractDomain
+from .utilities import plot_two_1d_functions, plot_1d_function
+
+from .EquationClass import AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
 import numpy as np
-import matplotlib.pyplot as plt
 from pandas import DataFrame
 
 
 class ReportMaker:
     def __init__(
             self,
-            true_solutions: Union[List[Callable[[torch.tensor], torch.tensor]], Callable[[torch.tensor], torch.tensor]],
             nn_models: List[Callable[[torch.tensor], torch.tensor]],
-            main_eq: AbstractEquation,
-            mse_loss_train: torch.Tensor,
-            mse_loss_valid: torch.Tensor,
+            loss_history_train: torch.Tensor,
+            loss_history_valid: torch.Tensor,
             domain: AbstractDomain,
-            num_epochs: int = 20,
-            plot2functions: Callable = plot_two_1d_functions,
-            do_plot_func: bool = True
+            compare_to_functions: Callable = plot_two_1d_functions,
+            analytical_solutions: Union[List[Callable[[torch.tensor], torch.tensor]],
+            Callable[[torch.tensor], torch.tensor]] = None
     ):
-        if not isinstance(true_solutions, list):
-            self.true_solutions = [true_solutions]
+        if not isinstance(analytical_solutions, list):
+            self.analytical_solutions = [analytical_solutions]
         else:
-            self.true_solutions = true_solutions
+            self.analytical_solutions = analytical_solutions
         self.nn_models = nn_models
-        self.nn_models = [nn_model.eval() for nn_model in self.nn_models]
-        self.main_eq = main_eq
-        self.mse_loss_train = self.torch_to_numpy(mse_loss_train)
-        self.mse_loss_valid = self.torch_to_numpy(mse_loss_valid)
+        (nn_model.eval() for nn_model in self.nn_models)
+        self.loss_history_train = self.torch_to_numpy(loss_history_train)
+        self.loss_history_valid = self.torch_to_numpy(loss_history_valid)
         self.domain = domain
+        num_epochs = len(self.loss_history_train)
         self.epochs = torch.arange(num_epochs)
-        self.do_plot_func = do_plot_func
-        self.plot_two_functions = plot2functions
+        self.compare_two_functions = compare_to_functions
+        self.plot_1d_function = plot_1d_function
 
     @staticmethod
     def torch_to_numpy(arr: torch) -> np.array:
         return arr.cpu().detach().numpy()
 
     @staticmethod
-    def plot_1d_function(
-            x_value: torch.Tensor, y_value: torch.Tensor, title: str, x_label: str, y_label: str
-    ) -> None:
-        fig, ax = plt.subplots(figsize=(9, 7))
-        ax.set_title(title)
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
-        ax.grid(True, which="both")
-        ax.axhline(y=0, color="k")
-        ax.axvline(x=0, color="k")
-        ax.plot(x_value, y_value)
-        plt.show()
-
-    @staticmethod
-    def get_func_value(funcs, domain: torch.tensor) -> torch.tensor:
-        result = torch.zeros((len(funcs), *domain.shape))
+    def get_func_value(funcs, domain: List[torch.tensor]) -> torch.tensor:
+        result = torch.zeros((len(funcs), *domain[0].shape))
         for i, func in enumerate(funcs):
-            result[i] = func(domain)
+            result[i] = func(*domain)
         return result
 
     def get_domain_target(self, domain_data: str = 'train') -> (torch.tensor, torch.tensor, torch.tensor):
         assert domain_data in ['train', 'valid']
         if domain_data == 'train':
-            domain = self.domain.get_train_domain()
+            domain: list = self.domain.get_train_domain()
         else:
-            domain = self.domain.get_valid_domain()
+            domain: list = self.domain.get_valid_domain()
         appr_val = ReportMaker.get_func_value(self.nn_models, domain)
-        analytical_val = ReportMaker.get_func_value(self.true_solutions, domain)
-        domain = ReportMaker.torch_to_numpy(domain)
+        analytical_val = ReportMaker.get_func_value(self.analytical_solutions, domain)
+        domain = [ReportMaker.torch_to_numpy(domain_part) for domain_part in domain]
         appr_val = ReportMaker.torch_to_numpy(appr_val)
         analytical_val = ReportMaker.torch_to_numpy(analytical_val)
         return domain, appr_val, analytical_val
 
-    def make_report(self) -> None:
-        train_domain, nn_approximation_train, analytical_solution_train = self.get_domain_target()
-        valid_domain, nn_approximation_valid, analytical_solution_valid = self.get_domain_target("valid")
-
-        abs_error_train = FunctionErrorMetrics.calculate_absolute_error(
-            analytical_solution_train, nn_approximation_train
+    def print_loss_history(self, phase="train"):
+        assert phase in ["train", "valid"]
+        if phase == "train":
+            loss = self.loss_history_train
+        else:
+            loss = self.loss_history_valid
+        self.plot_1d_function(
+            self.epochs, loss, "Max abs residual value on train", "epoch", "abs value"
         )
 
-        print(
-            "Train max absolute error |Appr(x)-y(x)|: {}".format(
-                FunctionErrorMetrics.calculate_max_absolute_error(
-                    analytical_solution_train, nn_approximation_train
+    def compare_appr_with_analytical(self) -> None:
+        if self.analytical_solutions is not None:
+            train_domain, nn_approximation_train, analytical_solution_train = self.get_domain_target()
+            valid_domain, nn_approximation_valid, analytical_solution_valid = self.get_domain_target("valid")
+            abs_error_train = FunctionErrorMetrics.calculate_absolute_error(
+                analytical_solution_train, nn_approximation_train
+            )
+            print("Comparison of approximation and analytical solution:")
+            print(
+                "Train max absolute error |Appr(x)-y(x)|: {}".format(
+                    FunctionErrorMetrics.calculate_max_absolute_error(
+                        analytical_solution_train, nn_approximation_train
+                    )
                 )
             )
-        )
 
-        print(
-            "Valid max absolute error |Appr(x)-y(x)|: {}".format(
-                FunctionErrorMetrics.calculate_max_absolute_error(
-                    analytical_solution_valid, nn_approximation_valid
+            print(
+                "Valid max absolute error |Appr(x)-y(x)|: {}".format(
+                    FunctionErrorMetrics.calculate_max_absolute_error(
+                        analytical_solution_valid, nn_approximation_valid
+                    )
                 )
             )
-        )
 
-        print(
-            "MAPE on train data: {} %".format(
-                100
-                * FunctionErrorMetrics.calculate_mean_average_precision_error(
-                    analytical_solution_train, nn_approximation_train
+            print(
+                "MAPE on train data: {} %".format(
+                    100
+                    * FunctionErrorMetrics.calculate_mean_average_precision_error(
+                        analytical_solution_train, nn_approximation_train
+                    )
                 )
             )
-        )
 
-        print(
-            "MAPE on validation data: {} %".format(
-                100
-                * FunctionErrorMetrics.calculate_mean_average_precision_error(
-                    analytical_solution_valid, nn_approximation_valid
+            print(
+                "MAPE on validation data: {} %".format(
+                    100
+                    * FunctionErrorMetrics.calculate_mean_average_precision_error(
+                        analytical_solution_valid, nn_approximation_valid
+                    )
                 )
             )
-        )
 
-        print(
-            "Max residual square loss on train at last epoch: {} ".format(self.mse_loss_train[-1])
-        )
+            print(
+                "Max abs value of residual on train at last epoch: {} ".format(self.loss_history_train[-1])
+            )
 
-        ReportMaker.plot_1d_function(
-            self.epochs, self.mse_loss_train, "Max abs residual value on train", "epoch", "abs value"
-        )
+            self.domain.plot_error_distribution(
+                train_domain,
+                abs_error_train
+            )
 
-        ReportMaker.plot_1d_function(
-            train_domain,
-            abs_error_train,
-            "Absolute error on train data: |Appr(x)-y(x)|",
-            "X",
-            "Error",
-        )
-
-        if self.do_plot_func:
-            self.plot_two_functions(valid_domain,
-                                    analytical_solution_valid,
-                                    nn_approximation_valid,
-                                    "Compare True func Vs Approximation",
-                                    "domain",
-                                    "True",
-                                    "Approximation")
+            if self.compare_two_functions is not None:
+                self.compare_two_functions(valid_domain,
+                                           analytical_solution_valid,
+                                           nn_approximation_valid,
+                                           "Compare True func Vs Approximation",
+                                           "domain",
+                                           "True",
+                                           "Approximation")
+        else:
+            raise ValueError("You have to provide analytical solution to compare it with the approximation")
 
     def print_comparison_table(self, domain_data: str = 'train', filename='comparison.csv') -> None:
         if domain_data == "train":
@@ -149,7 +138,7 @@ class ReportMaker:
             domain, appr_val, analytical_val = self.get_domain_target("valid")
         error = FunctionErrorMetrics.calculate_absolute_error(appr_val, analytical_val)
         data = dict()
-        data["Input"] = np.ravel(domain)
+        data["Input"] = np.ravel(domain[0])
         n_outputs = len(analytical_val)
         if n_outputs == 1:
             data["Analytical"] = np.ravel(analytical_val)

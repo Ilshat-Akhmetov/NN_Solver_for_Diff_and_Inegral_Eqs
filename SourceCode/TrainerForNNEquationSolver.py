@@ -1,5 +1,5 @@
 import torch
-from .NeuralNetworkFunction import NeuralNetworkFunction
+from .NeuralNetworkFunction import NeuralNetworkModel1d
 from .EquationClass import AbstractEquation
 import numpy as np
 import random
@@ -12,21 +12,29 @@ class TrainerForNNEquationSolver:
             main_eq: AbstractEquation,
             n_epochs: int = 20,
             lr: float = 1e-1,
-            n_hidden_neurons: int = 50
+            n_hidden_neurons: int = 50,
+            act_func: Callable = torch.tanh,
+            boundary_satisfying_models: List[Callable] = None
     ):
         self.set_seed(77)
+        self.act_func = act_func
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.main_eq = main_eq
         self.batch_size = 1
         self.norm = lambda x: torch.pow(x, 2)
         self.n_hidden_neurons = n_hidden_neurons
-        self.nn_models = self.get_nn_models()
-        # self.nn_model.to(self.device)
+
         self.num_epochs = n_epochs
-        model_parameters = []
-        for nn_model in self.nn_models:
-            model_parameters += list(nn_model.parameters())
-        self.optimizer = torch.optim.LBFGS(params=model_parameters, lr=lr, max_iter=20)
+        self.nn_type = main_eq.get_nn_model_type()
+        if boundary_satisfying_models is None:
+            self.boundary_satisfying_models = [None] * self.main_eq.count_equations()
+        elif not isinstance(boundary_satisfying_models, list):
+            self.boundary_satisfying_models = [boundary_satisfying_models]
+        else:
+            self.boundary_satisfying_models = boundary_satisfying_models
+        self.nn_models, model_params = self.get_nn_models(self.boundary_satisfying_models)
+        # self.nn_model.to(self.device)
+        self.optimizer = torch.optim.LBFGS(params=model_params, lr=lr, max_iter=20)
         # self.optimizer = torch.optim.Adam(
         #     params = model_parameters,  lr=lr, betas=(0.99, 0.9999)
         # )
@@ -34,11 +42,21 @@ class TrainerForNNEquationSolver:
             self.optimizer, step_size=10, gamma=1
         )
 
-    def get_nn_models(self) -> List[Callable[[torch.tensor], torch.tensor]]:
-        n_inputs = 1
-        n_layers = 1
+    def get_nn_models(self, boundary_satisfying_models) -> (List[Callable[[torch.tensor], torch.tensor]],
+                                                            List[torch.tensor],
+                                                            ):
+        n_layers = 2
         n = self.main_eq.count_equations()
-        return [NeuralNetworkFunction(n_inputs, self.n_hidden_neurons, n_layers) for _ in range(n)]
+        model_params = []
+        nn_models = []
+        for i in range(n):
+            nn_model = self.nn_type(boundary_satisfying_models[i],
+                                    self.n_hidden_neurons,
+                                    n_layers,
+                                    act=self.act_func)
+            model_params += list(nn_model.parameters())
+            nn_models.append(nn_model)
+        return nn_models, model_params
 
     @staticmethod
     def set_seed(seed: int = 77) -> None:
@@ -57,9 +75,9 @@ class TrainerForNNEquationSolver:
             # Each epoch has a training and validation phase
             for phase in ["train", "valid"]:
                 if phase == "train":
-                    self.nn_models = [nn_model.train() for nn_model in self.nn_models]  # Set model to training mode
+                    (nn_model.train() for nn_model in self.nn_models)  # Set model to training mode
                 else:
-                    self.nn_models = [nn_model.eval() for nn_model in self.nn_models]  # Set model to evaluate mode
+                    (nn_model.eval() for nn_model in self.nn_models)  # Set model to evaluate mode
                 epoch_loss = self.get_loss(phase)
                 if phase == "train":
                     self.scheduler.step()
@@ -75,7 +93,7 @@ class TrainerForNNEquationSolver:
             self.optimizer.zero_grad()
             total_loss, max_residual_norm = self.main_eq.get_residuals_norm(self.nn_models, phase)
             if phase == "train":
-                total_loss.backward()
+                total_loss.backward(retain_graph=True)
             return max_residual_norm.item()
 
         self.optimizer.step(closure=closure)

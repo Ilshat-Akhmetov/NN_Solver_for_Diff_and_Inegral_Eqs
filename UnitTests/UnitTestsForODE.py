@@ -3,7 +3,7 @@ import sys
 import torch
 from SourceCode.FunctionErrorMetrics import FunctionErrorMetrics
 from SourceCode.utilities import nth_derivative
-from SourceCode.EquationClass import OneDimensionalMainEquation
+from SourceCode.EquationClass import MainEquationClass
 from SourceCode.DomainClass import OneDimensionalSimpleDomain
 from SourceCode.InitConditionClass import OnePointInitialCondition
 from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
@@ -17,8 +17,8 @@ class NNSolverForODETest(unittest.TestCase):
         left_bound = 0
         right_bound = 1
         main_eq_residual = (
-            lambda x, nn_appr: nth_derivative(nn_appr, x, 2)
-            + 0.2 * nth_derivative(nn_appr, x, 1)
+            lambda x, nn_appr: nth_derivative(nn_appr(x), x, 2)
+            + 0.2 * nth_derivative(nn_appr(x), x, 1)
             + nn_appr(x)
             + 0.2 * torch.exp(-x / 5) * torch.cos(x)
         )
@@ -35,22 +35,19 @@ class NNSolverForODETest(unittest.TestCase):
 
         boundary_conditions = [first_init_cond, second_init_cond]
         main_domain = OneDimensionalSimpleDomain(left_bound, right_bound, n_points)
-        main_eq = OneDimensionalMainEquation(
+        main_eq = MainEquationClass(
             main_domain, main_eq_residual, boundary_conditions
         )
 
-        true_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
+        analytical_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
         nn_ode_solver = TrainerForNNEquationSolver(main_eq)
         loss_train, loss_valid, nn_models = nn_ode_solver.fit(verbose=False)
-        report = ReportMaker(
-            true_solution,
-            nn_models,
-            main_eq,
-            loss_train,
-            loss_valid,
-            main_domain,
-            num_epochs=n_epochs,
-        )
+        report = ReportMaker(nn_models,
+                             loss_train,
+                             loss_valid,
+                             main_domain,
+                             analytical_solutions=analytical_solution
+                             )
         (
             self.valid_domain,
             self.approximation,

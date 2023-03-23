@@ -2,8 +2,11 @@ import abc
 import torch
 from numpy import array as np_array
 import matplotlib.pyplot as plt
-from typing import List, Union
-from .NeuralNetworkFunction import NeuralNetworkModel1d, NeuralNetworkModel2d
+from typing import List, Union, Callable
+from .NeuralNetworkFunction import (
+    NeuralNetworkFunctionWrapper1D,
+    NeuralNetworkFunctionWrapper2D,
+)
 
 
 class AbstractDomain(abc.ABC):
@@ -13,6 +16,10 @@ class AbstractDomain(abc.ABC):
 
     @abc.abstractmethod
     def get_valid_domain(self) -> torch.tensor:
+        raise NotImplementedError
+
+    @staticmethod
+    def plot_error_distribution(domain: List[np_array], func_value: List[np_array]):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -25,17 +32,21 @@ class AbstractDomain(abc.ABC):
 
 
 class OneDimensionalSimpleDomain(AbstractDomain):
-    def __init__(self, left_bound: Union[float, int],
-                 right_bound: Union[float, int], n_points: int):
+    def __init__(
+        self,
+        left_bound: Union[float, int],
+        right_bound: Union[float, int],
+        n_points: int,
+    ):
         self.n_points = n_points
         self.left_point = left_bound
         self.right_point = right_bound
         self.dx = (right_bound - left_bound) / (n_points - 1)
         self.train_domain = self.make_train_domain()
         self.valid_domain = self.make_valid_domain()
-        self.__nn_type = NeuralNetworkModel1d
+        self.__nn_type = NeuralNetworkFunctionWrapper1D
 
-    def get_nn_type(self) -> object:
+    def get_nn_type(self) -> Callable[[torch.tensor], torch.tensor]:
         return self.__nn_type
 
     def get_domain_size(self) -> int:
@@ -45,9 +56,7 @@ class OneDimensionalSimpleDomain(AbstractDomain):
         return self.dx
 
     def make_train_domain(self) -> torch.tensor:
-        train_domain = torch.linspace(
-            self.left_point, self.right_point, self.n_points
-        )
+        train_domain = torch.linspace(self.left_point, self.right_point, self.n_points)
         train_domain.requires_grad = True
         return [train_domain]
 
@@ -63,8 +72,7 @@ class OneDimensionalSimpleDomain(AbstractDomain):
         return self.valid_domain
 
     @staticmethod
-    def plot_error_distribution(domain: List[np_array],
-                                func_value: List[np_array]):
+    def plot_error_distribution(domain: List[np_array], func_value: List[np_array]):
         fig, ax = plt.subplots(figsize=(9, 7))
         ax.set_title("Abs error |an_sol(x) - approx(x)|")
         ax.set_xlabel("X")
@@ -77,13 +85,15 @@ class OneDimensionalSimpleDomain(AbstractDomain):
 
 
 class TwoDimensionalSimpleDomain(AbstractDomain):
-    def __init__(self,
-                 x1_n_points: int,
-                 x1_left: Union[int, float],
-                 x1_right: Union[int, float],
-                 x2_n_points: int,
-                 x2_left: Union[int, float],
-                 x2_right: Union[int, float], ):
+    def __init__(
+        self,
+        x1_n_points: int,
+        x1_left: Union[int, float],
+        x1_right: Union[int, float],
+        x2_n_points: int,
+        x2_left: Union[int, float],
+        x2_right: Union[int, float],
+    ):
         self.x1_n_points = x1_n_points
         self.x1_left = x1_left
         self.x1_right = x1_right
@@ -94,9 +104,9 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
         self.dx2 = (x2_right - x2_left) / (x2_n_points - 1)
         self.train_domain = self.make_train_domain()
         self.valid_domain = self.make_valid_domain()
-        self.__nn_type = NeuralNetworkModel2d
+        self.__nn_type = NeuralNetworkFunctionWrapper2D
 
-    def get_nn_type(self) -> NeuralNetworkModel2d:
+    def get_nn_type(self) -> Callable[[torch.tensor, torch.tensor], torch.tensor]:
         return self.__nn_type
 
     def get_domain_size(self) -> int:
@@ -125,3 +135,15 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
 
     def get_valid_domain(self) -> List[torch.tensor]:
         return self.valid_domain
+
+    @staticmethod
+    def plot_error_distribution(domain: List[np_array], func_value: List[np_array]):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        ax.set_title("Abs error |an_sol(x) - approx(x)|")
+        ax.set_xlabel("X1")
+        ax.set_ylabel("X2")
+        ax.set_zlabel("Error")
+        ax.grid(True, which="both")
+        ax.plot_surface(domain[0], domain[1], func_value)
+        plt.show()

@@ -7,10 +7,9 @@ from types import FunctionType
 
 class AbstractEquation(abc.ABC):
     @abc.abstractmethod
-    def get_residuals(self,
-                      nn_models: torch.nn,
-                      domain: torch.tensor,
-                      equation: Callable) -> torch.tensor:
+    def get_residuals(
+        self, nn_models: torch.nn, domain: torch.tensor, equation: Callable
+    ) -> torch.tensor:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -18,9 +17,9 @@ class AbstractEquation(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_residuals_norm(self,
-                           nn_models: torch.nn,
-                           phase: str) -> (torch.tensor, torch.tensor):
+    def get_residuals_norm(
+        self, nn_models: torch.nn, phase: str
+    ) -> (torch.tensor, torch.tensor):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -32,9 +31,11 @@ class MainEquationClass(AbstractEquation):
     def __init__(
         self,
         domain: AbstractDomain,
-        equations: Union[Callable[[torch.Tensor, torch.Tensor], torch.Tensor], List[Callable]],
+        equations: Union[
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor], List[Callable]
+        ],
         boundary_conditions: list = None,
-        bound_coefficient: Union[float, int] = 10
+        bound_coefficient: Union[float, int] = 10,
     ):
         self.domain = domain
         assert type(equations) in [FunctionType, list]
@@ -49,11 +50,15 @@ class MainEquationClass(AbstractEquation):
         self.boundary_coefficient = self.get_boundary_coefficient(bound_coefficient)
         self.norm = lambda x: torch.pow(x, 2)
 
-    def get_nn_model_type(self):
+    def get_nn_model_type(self) -> Callable:
         return self.domain.get_nn_type()
 
-    def get_boundary_coefficient(self, desired_ratio: Union[float, int]) -> Union[int, float, None]:
-        n_bound_conditions = len(self.boundary_conditions)
+    def get_boundary_coefficient(
+        self, desired_ratio: Union[float, int]
+    ) -> Union[int, float, None]:
+        n_bound_conditions = 0
+        for bound_condition in self.boundary_conditions:
+            n_bound_conditions += bound_condition.get_domain_size()
         if n_bound_conditions == 0:
             return None
         domain_size = self.domain.get_domain_size() * len(self.equations)
@@ -62,34 +67,40 @@ class MainEquationClass(AbstractEquation):
     def count_equations(self) -> int:
         return len(self.equations)
 
-    def get_residuals(self,
-                      nn_models: torch.nn,
-                      domain: List[torch.tensor],
-                      equation: Callable) -> torch.tensor:
+    def get_residuals(
+        self, nn_models: torch.nn, domain: List[torch.tensor], equation: Callable
+    ) -> torch.tensor:
         residual = equation(*domain, *nn_models)
         return residual
 
-    def get_residuals_norm(self, nn_models: torch.nn, phase: str) -> (torch.tensor, torch.tensor):
-        assert phase in ['train', 'valid']
-        if phase == 'train':
+    def get_residuals_norm(
+        self, nn_models: torch.nn, phase: str
+    ) -> (torch.tensor, torch.tensor):
+        assert phase in ["train", "valid"]
+        if phase == "train":
             domain: list = self.domain.get_train_domain()
         else:
             domain: list = self.domain.get_valid_domain()
         total_loss = torch.tensor(0.0, dtype=torch.float32, requires_grad=False)
         max_res_norm = torch.tensor(0.0, requires_grad=False)
+        total_n_points = self.domain.get_domain_size()
         with torch.set_grad_enabled(True):
             for equation in self.equations:
                 main_domain_residuals = self.get_residuals(nn_models, domain, equation)
+                loss_val = self.norm(main_domain_residuals)
                 curr_max_res_norm = torch.max(torch.abs(main_domain_residuals))
                 max_res_norm = torch.max(curr_max_res_norm, max_res_norm)
-                loss_val = self.norm(main_domain_residuals)
                 total_loss += torch.sum(loss_val)
             for boundary_condition in self.boundary_conditions:
                 boundary_residuals = boundary_condition.get_boundary_residuals(
                     nn_models
                 )
-                boundary_loss = torch.sum(self.boundary_coefficient * self.norm(boundary_residuals))
+                boundary_loss = torch.sum(
+                    self.boundary_coefficient * self.norm(boundary_residuals)
+                )
+                total_n_points += boundary_condition.get_domain_size()
                 boundary_res_norm = torch.max(torch.abs(boundary_residuals))
                 max_res_norm = torch.max(max_res_norm, boundary_res_norm)
                 total_loss += boundary_loss
-        return total_loss, max_res_norm
+        mean_loss = total_loss / total_n_points
+        return mean_loss, max_res_norm

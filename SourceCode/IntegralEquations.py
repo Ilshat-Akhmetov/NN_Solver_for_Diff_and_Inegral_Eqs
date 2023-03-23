@@ -5,9 +5,7 @@ import torch
 class IntegralEquations:
     @staticmethod
     def get1DcentralrectangularNodes(
-        left_bound: Union[int, float],
-        right_bound: Union[int, float],
-        n_points: int
+        left_bound: Union[int, float], right_bound: Union[int, float], n_points: int
     ) -> (torch.tensor, float):
         domain_arr = torch.linspace(left_bound, right_bound, n_points)
         int_nodes = (domain_arr[1:] + domain_arr[:-1]) / 2

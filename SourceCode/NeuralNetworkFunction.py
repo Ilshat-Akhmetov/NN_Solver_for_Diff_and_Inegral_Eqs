@@ -3,11 +3,8 @@ import torch.nn as nn
 from typing import Callable
 
 
-class NeuralNetworkFunction1d(nn.Module):
-    def __init__(self,
-                 num_hidden: int = 50,
-                 num_layers: int = 1,
-                 act=nn.Tanh()):
+class NeuralNetworkFunction1D(nn.Module):
+    def __init__(self, num_hidden: int = 50, num_layers: int = 1, act=nn.Tanh()):
         super().__init__()
 
         self.layer_in = nn.Linear(1, num_hidden)
@@ -27,16 +24,15 @@ class NeuralNetworkFunction1d(nn.Module):
         return out
 
 
-class NeuralNetworkModel1d:
-    def __init__(self,
-                 appr_func: Callable = None,
-                 num_hidden: int = 50,
-                 num_layers: int = 1,
-                 act=nn.Tanh()):
-        self.nn_model = NeuralNetworkFunction1d(
-            num_hidden,
-            num_layers,
-            act)
+class NeuralNetworkFunctionWrapper1D:
+    def __init__(
+        self,
+        appr_func: Callable = None,
+        num_hidden: int = 50,
+        num_layers: int = 1,
+        act=nn.Tanh(),
+    ):
+        self.nn_model = NeuralNetworkFunction1D(num_hidden, num_layers, act)
         if appr_func is None:
             self.appr_model = self.nn_model
         else:
@@ -55,10 +51,8 @@ class NeuralNetworkModel1d:
         return self.nn_model.parameters()
 
 
-class NeuralNetworkFunction2d(NeuralNetworkFunction1d):
-    def __init__(self, num_hidden: int = 50,
-                 num_layers: int = 1,
-                 act=nn.Tanh()):
+class NeuralNetworkFunction2D(NeuralNetworkFunction1D):
+    def __init__(self, num_hidden: int = 50, num_layers: int = 1, act=nn.Tanh()):
         super().__init__(num_hidden, num_layers, act)
         self.inp_layer = nn.Linear(2, num_hidden)
 
@@ -71,17 +65,16 @@ class NeuralNetworkFunction2d(NeuralNetworkFunction1d):
         return torch.squeeze(out, dim=2)
 
 
-class NeuralNetworkModel2d(NeuralNetworkFunction1d):
-    def __init__(self,
-                 appr_func: Callable = None,
-                 num_hidden: int = 50,
-                 num_layers: int = 1,
-                 act=nn.Tanh()):
+class NeuralNetworkFunctionWrapper2D(NeuralNetworkFunctionWrapper1D):
+    def __init__(
+        self,
+        appr_func: Callable = None,
+        num_hidden: int = 50,
+        num_layers: int = 1,
+        act=nn.Tanh(),
+    ):
         super().__init__(appr_func, num_hidden, num_layers, act)
-        self.nn_model = NeuralNetworkFunction2d(
-            num_hidden,
-            num_layers,
-            act)
+        self.nn_model = NeuralNetworkFunction2D(num_hidden, num_layers, act)
         if appr_func is None:
             self.appr_model = self.nn_model
         else:

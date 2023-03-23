@@ -44,7 +44,9 @@ How to use this?
 **Example 1**. Fredholm's equation.
 
 $$ y(x) = sin(\pi*x) + \frac{1}{2}\int_{0}^1y(t)dt $$
-with analytical solution $$ analytical solution: y(x) = sin(\pi x) + \frac{2}{\pi} $$
+with analytical solution:
+$$ analytical solution: y(x) = sin(\pi x) + \frac{2}{\pi} $$
+$$ x \in [0, 1] $$
 
 First we need to import everything we need for work
 ```python
@@ -97,15 +99,17 @@ report = ReportMaker(nn_model,
 report.print_loss_history()
 report.compare_appr_with_analytical()
 ```
-**Example 2**. Simple system of 2 ODEs. Here we also specify approximation so that it
+**Example 2**. Simple system of 2 ODEs. Here we also specify an approximation 
+so that it satisfies boundary conditions and we dont have to specify them exmplicitly.
 $$ x'= -y $$
-$$ y' = x + cost(t) $$
-$$ x(0) = 0$$ $$y(0) = 0$$
+$$ y' = x + cos(t) $$
+$$ x(0) = 0$$ 
+$$y(0) = 0$$
 $$t \in [0,5] $$
-True_solution: $$x = -\frac{1}{2}tsin(t)$$ $$y = tcos(t) + \frac{1}{2}sin(t)$$
+Analytucal solution: $$x = -\frac{1}{2}tsin(t)$$ $$y = tcos(t) + \frac{1}{2}sin(t)$$
 Approximation satisfying boundary conditions: $$ apprX(t) = t*nn_1(t) $$
 $$ apprY(t) = t*nn_2(t) $$
-satisfies boundary conditions and we dont have to specify them exmplicitly.
+
 ```python
 import torch
 import sys

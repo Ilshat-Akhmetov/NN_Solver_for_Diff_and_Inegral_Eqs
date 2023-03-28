@@ -16,12 +16,12 @@ class NNSolverForODETest(unittest.TestCase):
     def setUp(self) -> None:
         left_bound = 0
         right_bound = 1
-        main_eq_residual = (
+        main_eq_residual = [
             lambda x, nn_appr: nth_derivative(nn_appr(x), x, 2)
             + 0.2 * nth_derivative(nn_appr(x), x, 1)
             + nn_appr(x)
             + 0.2 * torch.exp(-x / 5) * torch.cos(x)
-        )
+        ]
         n_points = 20
         n_epochs = 20
 
@@ -40,7 +40,7 @@ class NNSolverForODETest(unittest.TestCase):
         )
 
         analytical_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
-        nn_ode_solver = TrainerForNNEquationSolver(main_eq)
+        nn_ode_solver = TrainerForNNEquationSolver(main_eq, n_epochs=n_epochs)
         loss_train, loss_valid, nn_models = nn_ode_solver.fit(verbose=False)
         report = ReportMaker(nn_models,
                              loss_train,

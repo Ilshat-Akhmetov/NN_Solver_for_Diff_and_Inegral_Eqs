@@ -37,7 +37,7 @@ class TwoDimInitialCondition(InitialCondition):
         non_const_var_left: Union[int, float],
         non_const_var_right: Union[int, float],
         non_const_var_size: int,
-        equation: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+        equation: Callable[[torch.tensor, torch.tensor], torch.tensor],
         const_var_ind: int = 1,
     ):
         assert const_var_ind in (1, 2)
@@ -54,7 +54,7 @@ class TwoDimInitialCondition(InitialCondition):
         else:
             self.xm, self.ym = torch.meshgrid((self.non_const_domain, self.const_var))
 
-    def get_boundary_residuals(self, nn_models: List[torch.nn]) -> torch.tensor:
+    def get_boundary_residuals(self, nn_models: List[Callable[[torch.tensor, torch.tensor], torch.tensor]]) -> torch.tensor:
         return self.equation(self.xm, self.ym, *nn_models)
 
     def get_domain_size(self):

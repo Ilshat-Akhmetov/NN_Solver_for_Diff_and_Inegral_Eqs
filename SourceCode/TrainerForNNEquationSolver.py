@@ -12,11 +12,11 @@ class TrainerForNNEquationSolver:
         main_eq: AbstractEquation,
         n_epochs: int = 20,
         lr: float = 1e-1,
-        n_hidden_neurons: int = 50,
+        n_hidden_neurons: int = 20,
         act_func: Callable = torch.tanh,
         boundary_satisfying_models: List[Callable] = None,
     ):
-        self.set_seed(77)
+        self.set_seed()
         self.act_func = act_func
         self.main_eq = main_eq
         self.batch_size = 1

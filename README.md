@@ -33,6 +33,9 @@ application for solving integral equations.
 In **JupyterPresentations\Solving_System_of_ODE_with_NN.ipynb** you can also find examples of NN's
 application for solving system of ODEs.
 
+In **JupyterPresentations\Solving_2D_PDE_with_NN.ipynb** you can see 
+how to apply this program for solving 2D equations
+
 Finally, in **JupyterPresentations\Solving_Integro_differential_eqs_with_NN.ipynb** you can see how NN's can
  be applied to solving integro-differential equations.
 

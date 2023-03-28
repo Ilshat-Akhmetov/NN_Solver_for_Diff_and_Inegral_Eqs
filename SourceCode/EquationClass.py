@@ -32,7 +32,7 @@ class MainEquationClass(AbstractEquation):
         self,
         domain: AbstractDomain,
         equations: Union[
-            Callable[[torch.Tensor, torch.Tensor], torch.Tensor], List[Callable]
+            Callable[[torch.Tensor], torch.Tensor], List[Callable]
         ],
         boundary_conditions: list = None,
         bound_coefficient: Union[float, int] = 10,
@@ -68,7 +68,7 @@ class MainEquationClass(AbstractEquation):
         return len(self.equations)
 
     def get_residuals(
-        self, nn_models: torch.nn, domain: List[torch.tensor], equation: Callable
+        self, nn_models: List[Callable], domain: List[torch.tensor], equation: Callable
     ) -> torch.tensor:
         residual = equation(*domain, *nn_models)
         return residual
@@ -77,10 +77,7 @@ class MainEquationClass(AbstractEquation):
         self, nn_models: torch.nn, phase: str
     ) -> (torch.tensor, torch.tensor):
         assert phase in ["train", "valid"]
-        if phase == "train":
-            domain: list = self.domain.get_train_domain()
-        else:
-            domain: list = self.domain.get_valid_domain()
+        domain = self.domain.get_domain(phase)
         total_loss = torch.tensor(0.0, dtype=torch.float32, requires_grad=False)
         max_res_norm = torch.tensor(0.0, requires_grad=False)
         total_n_points = self.domain.get_domain_size()

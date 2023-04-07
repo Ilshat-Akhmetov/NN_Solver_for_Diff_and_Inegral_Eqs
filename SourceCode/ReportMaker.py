@@ -22,7 +22,7 @@ class ReportMaker:
         ] = None,
         main_eq_residuals: Callable = None
     ):
-        if not isinstance(analytical_solutions, list):
+        if not isinstance(analytical_solutions, list) and analytical_solutions is not None:
             self.analytical_solutions = [analytical_solutions]
         else:
             self.analytical_solutions = analytical_solutions
@@ -58,10 +58,15 @@ class ReportMaker:
         else:
             domain: list = self.domain.get_domain_copy('valid')
         appr_val = ReportMaker.get_func_value(self.nn_models, domain)
-        analytical_val = ReportMaker.get_func_value(self.analytical_solutions, domain)
-        domain = [ReportMaker.torch_to_numpy(domain_part) for domain_part in domain]
         appr_val = ReportMaker.torch_to_numpy(appr_val)
-        analytical_val = ReportMaker.torch_to_numpy(analytical_val)
+        if self.analytical_solutions is not None:
+            analytical_val = ReportMaker.get_func_value(self.analytical_solutions, domain)
+            analytical_val = ReportMaker.torch_to_numpy(analytical_val)
+        else:
+            analytical_val = None
+        domain = [ReportMaker.torch_to_numpy(domain_part) for domain_part in domain]
+
+
         return domain, appr_val, analytical_val
 
     def plot_abs_residual_distr(self, phase: str='train') -> None:
@@ -179,7 +184,7 @@ class ReportMaker:
         else:
             print("valid data")
             domain, appr_val, analytical_val = self.get_domain_target("valid")
-        error = FunctionErrorMetrics.calculate_absolute_error(appr_val, analytical_val)
+
         data = dict()
         dimensionality = len(domain)
         if dimensionality == 1:
@@ -188,15 +193,19 @@ class ReportMaker:
             for i in range(dimensionality):
                 new_name = "Input_X{}".format(i + 1)
                 data[new_name] = np.ravel(domain[i])
-        n_outputs = len(analytical_val)
+        n_outputs = len(self.nn_models)
         if n_outputs == 1:
-            data["Analytical_F"] = np.ravel(analytical_val)
+            if self.analytical_solutions is not None:
+                data["Analytical_F"] = np.ravel(analytical_val)
             data["ANN_F"] = np.ravel(appr_val)
         else:
             for i in range(n_outputs):
-                data["Analytical_F{}".format(i + 1)] = np.ravel(analytical_val[i])
+                if self.analytical_solutions is not None:
+                    data["Analytical_F{}".format(i + 1)] = np.ravel(analytical_val[i])
                 data["ANN_F{}".format(i + 1)] = np.ravel(appr_val[i])
-        data["Abs error"] = np.ravel(error)
+        if self.analytical_solutions is not None:
+            error = FunctionErrorMetrics.calculate_absolute_error(appr_val, analytical_val)
+            data["Abs error"] = np.ravel(error)
         df = DataFrame(data=data)
         print(df)
         df.to_csv(filename, index_label="obs")

@@ -104,5 +104,6 @@ class TrainerForNNEquationSolver:
             return max_residual_norm.item()
 
         self.optimizer.step(closure=closure)
+        self.optimizer.zero_grad()
         epoch_loss = closure()
         return epoch_loss

@@ -1,5 +1,4 @@
 import torch
-from .NeuralNetworkFunction import NeuralNetworkFunctionWrapper1D
 from .EquationClass import AbstractEquation
 import numpy as np
 import random
@@ -8,15 +7,17 @@ from typing import List, Callable
 
 class TrainerForNNEquationSolver:
     def __init__(
-        self,
-        main_eq: AbstractEquation,
-        n_epochs: int = 20,
-        lr: float = 1e-1,
-        n_hidden_neurons: int = 20,
-        act_func: Callable = torch.tanh,
-        boundary_satisfying_models: List[Callable] = None,
+            self,
+            main_eq: AbstractEquation,
+            n_epochs: int = 20,
+            lr: float = 1e-1,
+            n_hidden_neurons: int = 20,
+            act_func: Callable = torch.tanh,
+            boundary_satisfying_models: List[Callable] = None,
+            n_hidden_layers=3
     ):
         self.set_seed()
+        self.n_hidden_layers = n_hidden_layers
         self.act_func = act_func
         self.main_eq = main_eq
         self.batch_size = 1
@@ -40,9 +41,8 @@ class TrainerForNNEquationSolver:
         )
 
     def get_nn_models(
-        self, boundary_satisfying_models
+            self, boundary_satisfying_models
     ) -> (List[Callable[[torch.tensor], torch.tensor]], List[torch.tensor],):
-        n_layers = 2
         n = self.main_eq.count_equations()
         model_params = []
         nn_models = []
@@ -50,7 +50,7 @@ class TrainerForNNEquationSolver:
             nn_model = self.nn_type(
                 boundary_satisfying_models[i],
                 self.n_hidden_neurons,
-                n_layers,
+                self.n_hidden_layers,
                 act=self.act_func,
             )
             model_params += list(nn_model.parameters())
@@ -66,7 +66,7 @@ class TrainerForNNEquationSolver:
         torch.backends.cudnn.deterministic = True
 
     def fit(
-        self, verbose: bool = False
+            self, verbose: bool = False
     ) -> (torch.tensor, torch.tensor, Callable[[torch.tensor], torch.tensor]):
         loss_train = torch.zeros(self.num_epochs)
         loss_valid = torch.zeros(self.num_epochs)
@@ -100,10 +100,10 @@ class TrainerForNNEquationSolver:
                 self.nn_models, phase
             )
             if phase == "train":
-                total_loss.backward(retain_graph=True)
+                total_loss.backward()
+
             return max_residual_norm.item()
 
-        self.optimizer.step(closure=closure)
-        self.optimizer.zero_grad()
         epoch_loss = closure()
+        self.optimizer.step(closure=closure)
         return epoch_loss

@@ -68,8 +68,8 @@ def plot_two_1d_functions(
     ax.set_ylabel("Function")
     ax.axhline(y=0, color="k")
     ax.axvline(x=0, color="k")
-    ax.plot(x_value[0], f1_value[0], color="lime", label=f1_label, linewidth=5.0)
-    ax.plot(x_value[0], f2_value[0], color="mediumblue", label=f2_label, linewidth=3.0)
+    ax.plot(x_value[0], f1_value[0], color="lime", label=f1_label, linewidth=2.0)
+    ax.scatter(x_value[0], f2_value[0], color="mediumblue", label=f2_label, linewidth=4.0)
     ax.legend(loc="best")
     plt.show()
 

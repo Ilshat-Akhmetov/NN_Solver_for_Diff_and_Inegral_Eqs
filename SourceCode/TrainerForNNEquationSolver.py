@@ -14,9 +14,10 @@ class TrainerForNNEquationSolver:
             n_hidden_neurons: int = 20,
             act_func: Callable = torch.tanh,
             boundary_satisfying_models: List[Callable] = None,
-            n_hidden_layers=3
+            n_hidden_layers: int=1,
+            seed: int = 77
     ):
-        self.set_seed()
+        self.set_seed(seed)
         self.n_hidden_layers = n_hidden_layers
         self.act_func = act_func
         self.main_eq = main_eq
@@ -35,10 +36,11 @@ class TrainerForNNEquationSolver:
         self.nn_models, model_params = self.get_nn_models(
             self.boundary_satisfying_models
         )
-        self.optimizer = torch.optim.LBFGS(params=model_params, lr=lr, max_iter=20)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=10, gamma=1
-        )
+        self.lbfgs_optimizer = torch.optim.LBFGS(params=model_params, lr=lr, max_iter=20)
+        #self.adam_opt = torch.optim.Adam(params=model_params, lr=1e-3)#, betas=(0.99, 0.9999))
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.lbfgs_optimizer, mode='min',
+                                                               factor=0.1, patience=5, threshold=0.001,
+                                                               threshold_mode='abs')
 
     def get_nn_models(
             self, boundary_satisfying_models
@@ -58,7 +60,7 @@ class TrainerForNNEquationSolver:
         return nn_models, model_params
 
     @staticmethod
-    def set_seed(seed: int = 77) -> None:
+    def set_seed(seed: int) -> None:
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -83,9 +85,9 @@ class TrainerForNNEquationSolver:
                     (
                         nn_model.eval() for nn_model in self.nn_models
                     )  # Set model to evaluate mode
-                epoch_loss = self.get_loss(phase)
+                epoch_loss = self.get_loss(phase, epoch)
                 if phase == "train":
-                    self.scheduler.step()
+                    self.scheduler.step(epoch_loss)
                     loss_train[epoch] = epoch_loss
                 else:
                     loss_valid[epoch] = epoch_loss
@@ -93,9 +95,13 @@ class TrainerForNNEquationSolver:
                     print("{} Loss: {:.4f}".format(phase, epoch_loss), flush=True)
         return loss_train, loss_valid, self.nn_models
 
-    def get_loss(self, phase: str) -> float:
+    def get_loss(self, phase: str, epoch: int) -> float:
+        n_epochs_for_adam =  0
         def closure():
-            self.optimizer.zero_grad()
+            if epoch < n_epochs_for_adam:
+                self.adam_opt.zero_grad()
+            else:
+                self.lbfgs_optimizer.zero_grad()
             total_loss, max_residual_norm = self.main_eq.get_residuals_norm(
                 self.nn_models, phase
             )
@@ -105,5 +111,8 @@ class TrainerForNNEquationSolver:
             return max_residual_norm.item()
 
         epoch_loss = closure()
-        self.optimizer.step(closure=closure)
+        if epoch < n_epochs_for_adam:
+            self.adam_opt.step(closure=closure)
+        else:
+            self.lbfgs_optimizer.step(closure=closure)
         return epoch_loss

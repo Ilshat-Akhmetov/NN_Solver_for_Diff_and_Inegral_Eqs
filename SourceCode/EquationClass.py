@@ -35,7 +35,7 @@ class MainEquationClass(AbstractEquation):
             Callable[[torch.Tensor], torch.Tensor], List[Callable]
         ],
         boundary_conditions: list = None,
-        bound_coefficient: Union[float, int] = 10,
+        domain_to_bound_ratio: Union[float, int] = 10,
     ):
         self.domain = domain
         assert type(equations) in [FunctionType, list]
@@ -47,7 +47,7 @@ class MainEquationClass(AbstractEquation):
             self.boundary_conditions = boundary_conditions
         else:
             self.boundary_conditions = []
-        self.boundary_coefficient = self.get_boundary_coefficient(bound_coefficient)
+        self.boundary_coefficient = self.get_boundary_coefficient(domain_to_bound_ratio)
         self.norm = lambda x: torch.pow(x, 2)
 
     def get_nn_model_type(self) -> Callable:

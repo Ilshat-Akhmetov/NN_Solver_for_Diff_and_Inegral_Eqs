@@ -67,6 +67,32 @@ class NeuralNetworkFunction(nn.Module):
         return torch.squeeze(out, dim=self.input_dim)
 
 
+
+## That is another probably good architecture for a NN
+# class NeuralNetworkFunction(nn.Module):
+#     def __init__(self, input_dim: int = 1, num_hidden: int = 50, num_layers: int = 1, act=nn.Tanh()):
+#         super().__init__()
+#         self.input_dim = input_dim
+#         self.inp_layer = nn.Linear(input_dim, num_hidden)
+#         self.middle_layers = [nn.Linear(num_hidden, num_hidden) for _ in range(num_layers)]
+#         self.act = act
+#         self.pol_d = 2
+#         self.layer_out = nn.Linear(num_hidden, self.pol_d+1)
+#
+#     def forward(self, *inputs):
+#         united_inp = torch.stack(inputs, dim=self.input_dim)
+#         out = self.inp_layer(united_inp)
+#         for layer in self.middle_layers:
+#             out = self.act(layer(out))
+#         out = self.layer_out(out)
+#         polynom = torch.ones(united_inp.shape[0], self.pol_d+1)
+#         x = torch.clone(united_inp)
+#         for i in range(1, self.pol_d+1):
+#             polynom[:, i] = torch.flatten(x)
+#             x = x * x
+#         return torch.sum(out*polynom, dim=1)
+
+
 class ResNet(torch.nn.Module):
     def __init__(self, module,
                  act=nn.Tanh()):

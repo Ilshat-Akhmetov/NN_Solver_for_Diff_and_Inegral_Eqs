@@ -75,7 +75,8 @@ if __name__ == "__main__":
                                              x1_right,
                                              x2_points,
                                              x2_left,
-                                             x2_right)
+                                             x2_right,
+                                             offset=0.1)
     main_eq_residuals = lambda x, y, nn_model: (nth_derivative(nn_model(x, y), x, 2) +
                                                 nth_derivative(nn_model(x, y), y, 2) +
                                                 torch.tensor(1.0, requires_grad=True))

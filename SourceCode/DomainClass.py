@@ -18,6 +18,14 @@ class AbstractDomain(abc.ABC):
     def get_domain_size(self) -> float:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def make_train_domain(self, offset: float = 0) -> torch.tensor:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def make_valid_domain(self) -> torch.tensor:
+        raise NotImplementedError
+
     def get_domain(self, phase: str = 'train'):
         assert phase in ['train', 'valid']
         if phase == 'train':
@@ -28,9 +36,9 @@ class AbstractDomain(abc.ABC):
     def get_domain_copy(self, phase: str = 'train'):
         assert phase in ['train', 'valid']
         if phase == 'train':
-            return [torch.clone(x) for x in self.train_domain]
+            return self.make_train_domain(offset=0)
         else:
-            return [torch.clone(x) for x in self.valid_domain]
+            return self.make_valid_domain()
 
 
 class OneDimensionalSimpleDomain(AbstractDomain):
@@ -46,7 +54,7 @@ class OneDimensionalSimpleDomain(AbstractDomain):
         self.right_point = right_bound
         self.offset = offset
         self.dx = (right_bound - left_bound) / (n_points - 1)
-        self.train_domain = self.make_train_domain()
+        self.train_domain = self.make_train_domain(offset)
         self.valid_domain = self.make_valid_domain()
         self.__nn_type = NeuralNetworkFunctionWrapper1D
 
@@ -56,8 +64,8 @@ class OneDimensionalSimpleDomain(AbstractDomain):
     def get_domain_unit(self) -> float:
         return self.dx
 
-    def make_train_domain(self) -> torch.tensor:
-        train_domain = torch.linspace(self.left_point + self.offset, self.right_point - self.offset, self.n_points)
+    def make_train_domain(self, offset: float = 0) -> torch.tensor:
+        train_domain = torch.linspace(self.left_point + offset, self.right_point - offset, self.n_points)
         train_domain.requires_grad = True
         return [train_domain]
 
@@ -103,7 +111,7 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
         self.offset = offset
         self.dx1 = (x1_right - x1_left) / (x1_n_points - 1)
         self.dx2 = (x2_right - x2_left) / (x2_n_points - 1)
-        self.train_domain = self.make_train_domain()
+        self.train_domain = self.make_train_domain(offset)
         self.valid_domain = self.make_valid_domain()
         self.__nn_type = NeuralNetworkFunctionWrapper2D
 
@@ -113,9 +121,9 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
     def get_domain_unit(self) -> float:
         return self.dx1 * self.dx2
 
-    def make_train_domain(self) -> torch.tensor:
-        x1_train_domain = torch.linspace(self.x1_left + self.offset, self.x1_right - self.offset, self.x1_n_points)
-        x2_train_domain = torch.linspace(self.x2_left + self.offset, self.x2_right - self.offset, self.x2_n_points)
+    def make_train_domain(self, offset: float = 0) -> torch.tensor:
+        x1_train_domain = torch.linspace(self.x1_left + offset, self.x1_right - offset, self.x1_n_points)
+        x2_train_domain = torch.linspace(self.x2_left + offset, self.x2_right - offset, self.x2_n_points)
 
         x1_mesh, x2_mesh = torch.meshgrid((x1_train_domain, x2_train_domain))
         x1_mesh.requires_grad = True

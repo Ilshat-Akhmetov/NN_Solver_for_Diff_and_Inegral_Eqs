@@ -75,7 +75,8 @@ class ReportMaker:
         assert phase in ['train', 'test'], "datarray may be only train or valid"
         if phase == 'train':
             title = "abs res value on train distr"
-            domain = self.domain.get_domain_copy()
+            offset = 1e-2
+            domain = self.domain.get_domain_copy(offset=offset)
         else:
             title = "abs res value on valid distr"
             domain = self.domain.get_domain_copy('valid')

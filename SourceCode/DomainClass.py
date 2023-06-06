@@ -33,10 +33,10 @@ class AbstractDomain(abc.ABC):
         else:
             return self.valid_domain
 
-    def get_domain_copy(self, phase: str = 'train'):
+    def get_domain_copy(self, phase: str = 'train', offset: float=0):
         assert phase in ['train', 'valid']
         if phase == 'train':
-            return self.make_train_domain(offset=0)
+            return self.make_train_domain(offset)
         else:
             return self.make_valid_domain()
 

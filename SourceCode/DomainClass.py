@@ -2,6 +2,8 @@ import abc
 import torch
 from numpy import array as np_array
 import matplotlib.pyplot as plt
+from .utilities import torch_to_numpy
+
 from typing import List, Union, Callable
 from .NeuralNetworkFunction import (
     NeuralNetworkFunctionWrapper1D,
@@ -26,19 +28,46 @@ class AbstractDomain(abc.ABC):
     def make_valid_domain(self) -> torch.tensor:
         raise NotImplementedError
 
-    def get_domain(self, phase: str = 'train'):
-        assert phase in ['train', 'valid']
-        if phase == 'train':
+    def get_domain(self, phase: str = "train"):
+        assert phase in ["train", "valid"]
+        if phase == "train":
             return self.train_domain
         else:
             return self.valid_domain
 
-    def get_domain_copy(self, phase: str = 'train', offset: float=0):
-        assert phase in ['train', 'valid']
-        if phase == 'train':
+    def get_domain_copy(self, phase: str = "train", offset: float = 0.0):
+        assert phase in ["train", "valid"]
+        if phase == "train":
             return self.make_train_domain(offset)
         else:
             return self.make_valid_domain()
+
+    @staticmethod
+    def get_func_value(funcs, domain: List[torch.tensor]) -> torch.tensor:
+        result = torch.zeros((len(funcs), *domain[0].shape))
+        for i, func in enumerate(funcs):
+            result[i] = func(*domain)
+        return result
+
+    def get_domain_and_target(
+        self,
+        domain_data: str = "train",
+        offset: float = 1e-2,
+        nn_models: List[Callable] = None,
+        analytical_solutions: List[Callable] = None,
+    ) -> (torch.tensor, torch.tensor, torch.tensor):
+        assert domain_data in ["train", "valid"]
+        domain: list = self.get_domain_copy(domain_data, offset)
+        appr_val = AbstractDomain.get_func_value(nn_models, domain)
+        appr_val = torch_to_numpy(appr_val)
+        if analytical_solutions is not None:
+            analytical_val = AbstractDomain.get_func_value(analytical_solutions, domain)
+            analytical_val = torch_to_numpy(analytical_val)
+        else:
+            analytical_val = None
+        domain = [torch_to_numpy(domain_part) for domain_part in domain]
+
+        return domain, appr_val, analytical_val
 
 
 class OneDimensionalSimpleDomain(AbstractDomain):
@@ -47,7 +76,7 @@ class OneDimensionalSimpleDomain(AbstractDomain):
         left_bound: Union[float, int],
         right_bound: Union[float, int],
         n_points: int,
-        offset: float=1e-2 # we need this so main domain does not include boundaries
+        offset: float = 1e-2,  # we need this so main domain does not include boundaries
     ):
         self.n_points = n_points
         self.left_point = left_bound
@@ -65,22 +94,28 @@ class OneDimensionalSimpleDomain(AbstractDomain):
         return self.dx
 
     def make_train_domain(self, offset: float = 0) -> torch.tensor:
-        train_domain = torch.linspace(self.left_point + offset, self.right_point - offset, self.n_points)
+        train_domain = torch.linspace(
+            self.left_point + offset, self.right_point - offset, self.n_points
+        )
         train_domain.requires_grad = True
         return [train_domain]
 
     def make_valid_domain(self) -> torch.tensor:
         valid_domain = self.get_domain_copy()
-        valid_domain[0] = (valid_domain[0][:-1] + valid_domain[0][1:])/2
+        valid_domain[0] = (valid_domain[0][:-1] + valid_domain[0][1:]) / 2
         return valid_domain
 
     def get_nn_type(self) -> Callable[[torch.tensor, torch.tensor], torch.tensor]:
         return self.__nn_type
 
     @staticmethod
-    def plot_error_distribution(domain: List[np_array], func_value: List[np_array],
-                                title: str = "Abs error |an_sol(x) - approx(x)|"):
-        fig, ax = plt.subplots(figsize=(9, 7))
+    def plot_error_distribution(
+        domain: List[np_array],
+        func_value: List[np_array],
+        title: str = "Abs error |an_sol(x) - approx(x)|",
+        figsize: tuple = (10, 12),
+    ):
+        fig, ax = plt.subplots(figsize=figsize)
         ax.set_title(title)
         ax.set_xlabel("X")
         ax.set_ylabel("Error")
@@ -100,7 +135,7 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
         x2_n_points: int,
         x2_left: Union[int, float],
         x2_right: Union[int, float],
-        offset: float = 1e-2 # we need this so main domain does not include boundaries
+        offset: float = 1e-2,  # we need this so main domain does not include boundaries
     ):
         self.x1_n_points = x1_n_points
         self.x1_left = x1_left
@@ -122,10 +157,14 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
         return self.dx1 * self.dx2
 
     def make_train_domain(self, offset: float = 0) -> torch.tensor:
-        x1_train_domain = torch.linspace(self.x1_left + offset, self.x1_right - offset, self.x1_n_points)
-        x2_train_domain = torch.linspace(self.x2_left + offset, self.x2_right - offset, self.x2_n_points)
+        x1_train_domain = torch.linspace(
+            self.x1_left + offset, self.x1_right - offset, self.x1_n_points
+        )
+        x2_train_domain = torch.linspace(
+            self.x2_left + offset, self.x2_right - offset, self.x2_n_points
+        )
 
-        x1_mesh, x2_mesh = torch.meshgrid((x1_train_domain, x2_train_domain))
+        x1_mesh, x2_mesh = torch.meshgrid((x1_train_domain, x2_train_domain), indexing='ij')
         x1_mesh.requires_grad = True
         x2_mesh.requires_grad = True
         return [x1_mesh, x2_mesh]
@@ -140,9 +179,13 @@ class TwoDimensionalSimpleDomain(AbstractDomain):
         return self.__nn_type
 
     @staticmethod
-    def plot_error_distribution(domain: List[np_array], func_value: List[np_array],
-                                title: str = "Abs error |an_sol(x,y) - approx(x,y)|"):
-        fig = plt.figure()
+    def plot_error_distribution(
+        domain: List[np_array],
+        func_value: List[np_array],
+        title: str = "Abs error |an_sol(x,y) - approx(x,y)|",
+        figsize: tuple = (10, 12),
+    ):
+        fig = plt.figure(figsize=figsize)
         ax = fig.add_subplot(111, projection="3d")
         ax.set_title(title)
         ax.set_xlabel("X1")

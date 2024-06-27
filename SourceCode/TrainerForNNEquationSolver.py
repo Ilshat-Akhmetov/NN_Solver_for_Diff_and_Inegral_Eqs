@@ -1,91 +1,56 @@
 import torch
 from .EquationClass import AbstractEquation
 import numpy as np
-import random
+from .SeedGen import SeedGen
 from typing import List, Callable
+from .DomainClass import AbstractDomain
 
 
-class TrainerForNNEquationSolver:
+class TrainerForNNEquationSolver(SeedGen):
     def __init__(
-            self,
-            main_eq: AbstractEquation,
-            n_epochs: int = 20,
-            lr: float = 1e-1,
-            n_hidden_neurons: int = 20,
-            act_func: Callable = torch.tanh,
-            boundary_satisfying_models: List[Callable] = None,
-            n_hidden_layers: int=1,
-            seed: int = 77
+        self,
+        main_eq: AbstractEquation,
+        nn_models: List[torch.nn.Module],
+        n_epochs: int = 20,
+        lr: float = 1e-1,
+        seed: int = 77,
+        optimizer_type: str = "lbfgs",
     ):
-        self.set_seed(seed)
-        self.n_hidden_layers = n_hidden_layers
-        self.act_func = act_func
+        TrainerForNNEquationSolver.set_seed(seed)
         self.main_eq = main_eq
-        self.batch_size = 1
-        self.norm = lambda x: torch.pow(x, 2)
-        self.n_hidden_neurons = n_hidden_neurons
-
-        self.num_epochs = n_epochs
-        self.nn_type = main_eq.get_nn_model_type()
-        if boundary_satisfying_models is None:
-            self.boundary_satisfying_models = [None] * self.main_eq.count_equations()
-        elif not isinstance(boundary_satisfying_models, list):
-            self.boundary_satisfying_models = [boundary_satisfying_models]
-        else:
-            self.boundary_satisfying_models = boundary_satisfying_models
-        self.nn_models, model_params = self.get_nn_models(
-            self.boundary_satisfying_models
-        )
-        self.lbfgs_optimizer = torch.optim.LBFGS(params=model_params, lr=lr, max_iter=20)
-        #self.adam_opt = torch.optim.Adam(params=model_params, lr=1e-3)#, betas=(0.99, 0.9999))
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.lbfgs_optimizer, mode='min',
-                                                               factor=0.1, patience=5, threshold=0.001,
-                                                               threshold_mode='abs')
-
-    def get_nn_models(
-            self, boundary_satisfying_models
-    ) -> (List[Callable[[torch.tensor], torch.tensor]], List[torch.tensor],):
-        n = self.main_eq.count_equations()
+        self.nn_models = nn_models
         model_params = []
-        nn_models = []
-        for i in range(n):
-            nn_model = self.nn_type(
-                boundary_satisfying_models[i],
-                self.n_hidden_neurons,
-                self.n_hidden_layers,
-                act=self.act_func,
-            )
-            model_params += list(nn_model.parameters())
-            nn_models.append(nn_model)
-        return nn_models, model_params
+        for model in nn_models:
+            model_params += list(model.parameters())
+        self.n_epochs = n_epochs
+        self.seed = seed
 
-    @staticmethod
-    def set_seed(seed: int) -> None:
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
+        optimizers = {
+            "lbfgs": torch.optim.LBFGS(params=model_params, lr=lr, max_iter=20),
+            "adam": torch.optim.Adam(params=model_params, lr=lr, betas=(0.99, 0.999)),
+        }
+        self.optimizer = optimizers[optimizer_type]
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer,
+            mode="min",
+            factor=0.1,
+            patience=5,
+            threshold=0.001,
+            threshold_mode="abs",
+        )
 
     def fit(
-            self, verbose: bool = False
+        self, verbose: bool = False
     ) -> (torch.tensor, torch.tensor, Callable[[torch.tensor], torch.tensor]):
-        loss_train = torch.zeros(self.num_epochs)
-        loss_valid = torch.zeros(self.num_epochs)
-        for epoch in range(self.num_epochs):
+        self.set_seed(self.seed)
+        loss_train = torch.zeros(self.n_epochs)
+        loss_valid = torch.zeros(self.n_epochs)
+        for epoch in range(self.n_epochs):
             if verbose:
-                print("Epoch {}/{}:".format(epoch, self.num_epochs - 1), flush=True)
+                print("Epoch {}/{}:".format(epoch, self.n_epochs - 1), flush=True)
             # Each epoch has a training and validation phase
             for phase in ["train", "valid"]:
-                if phase == "train":
-                    (
-                        nn_model.train() for nn_model in self.nn_models
-                    )  # Set model to training mode
-                else:
-                    (
-                        nn_model.eval() for nn_model in self.nn_models
-                    )  # Set model to evaluate mode
-                epoch_loss = self.get_loss(phase, epoch)
+                epoch_loss = self.get_loss(phase, self.optimizer)
                 if phase == "train":
                     self.scheduler.step(epoch_loss)
                     loss_train[epoch] = epoch_loss
@@ -93,15 +58,54 @@ class TrainerForNNEquationSolver:
                     loss_valid[epoch] = epoch_loss
                 if verbose:
                     print("{} Loss: {:.4f}".format(phase, epoch_loss), flush=True)
+
         return loss_train, loss_valid, self.nn_models
 
-    def get_loss(self, phase: str, epoch: int) -> float:
-        n_epochs_for_adam =  0
+    def fit_with_abs_err_history(
+        self,
+        domain: AbstractDomain,
+        analytical_sols: List[Callable],
+        verbose: bool = False,
+    ) -> (torch.tensor, torch.tensor, Callable[[torch.tensor], torch.tensor]):
+        self.set_seed(self.seed)
+        res_abs_loss_train = torch.zeros(self.n_epochs)
+        res_abs_loss_valid = torch.zeros(self.n_epochs)
+        abs_error_train = np.zeros(self.n_epochs)
+        abs_error_valid = np.zeros(self.n_epochs)
+        for epoch in range(self.n_epochs):
+            if verbose:
+                print("Epoch {}/{}:".format(epoch, self.n_epochs - 1), flush=True)
+            # Each epoch has a training and validation phase
+            for phase in ["train", "valid"]:
+                epoch_loss = self.get_loss(phase, self.optimizer)
+                if phase == "train":
+                    self.scheduler.step(epoch_loss)
+                    res_abs_loss_train[epoch] = epoch_loss
+                else:
+                    res_abs_loss_valid[epoch] = epoch_loss
+                _, appr_val, analytical_val = domain.get_domain_and_target(
+                    phase,
+                    domain.offset,
+                    nn_models=self.nn_models,
+                    analytical_solutions=analytical_sols,
+                )
+                if phase == "train":
+                    abs_error_train[epoch] = np.max(np.abs(appr_val - analytical_val))
+                else:
+                    abs_error_valid[epoch] = np.max(np.abs(appr_val - analytical_val))
+                if verbose:
+                    print("{} Loss: {:.4f}".format(phase, epoch_loss), flush=True)
+        return (
+            res_abs_loss_train,
+            res_abs_loss_valid,
+            abs_error_train,
+            abs_error_valid,
+            self.nn_models,
+        )
+
+    def get_loss(self, phase: str, optimizer) -> float:
         def closure():
-            if epoch < n_epochs_for_adam:
-                self.adam_opt.zero_grad()
-            else:
-                self.lbfgs_optimizer.zero_grad()
+            optimizer.zero_grad()
             total_loss, max_residual_norm = self.main_eq.get_residuals_norm(
                 self.nn_models, phase
             )
@@ -110,9 +114,6 @@ class TrainerForNNEquationSolver:
 
             return max_residual_norm.item()
 
-        epoch_loss = closure()
-        if epoch < n_epochs_for_adam:
-            self.adam_opt.step(closure=closure)
-        else:
-            self.lbfgs_optimizer.step(closure=closure)
-        return epoch_loss
+        max_residual_norm = closure()
+        optimizer.step(closure=closure)
+        return max_residual_norm

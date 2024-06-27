@@ -8,6 +8,7 @@ from SourceCode.DomainClass import OneDimensionalSimpleDomain
 from SourceCode.InitConditionClass import OnePointInitialCondition
 from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
 from SourceCode.ReportMaker import ReportMaker
+from SourceCode.NNGenerator import NNGenerator
 
 sys.path.append("..")
 
@@ -35,19 +36,22 @@ class NNSolverForODETest(unittest.TestCase):
 
         boundary_conditions = [first_init_cond, second_init_cond]
         main_domain = OneDimensionalSimpleDomain(left_bound, right_bound, n_points)
-        main_eq = MainEquationClass(
-            main_domain, main_eq_residual, boundary_conditions
-        )
+        main_eq = MainEquationClass(main_domain, main_eq_residual, boundary_conditions)
 
         analytical_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
-        nn_ode_solver = TrainerForNNEquationSolver(main_eq, n_epochs=n_epochs)
+        models = NNGenerator.generate_models()
+
+        nn_ode_solver = TrainerForNNEquationSolver(
+            main_eq, n_epochs=n_epochs, nn_models=models
+        )
         loss_train, loss_valid, nn_models = nn_ode_solver.fit(verbose=False)
-        report = ReportMaker(nn_models,
-                             loss_train,
-                             loss_valid,
-                             main_domain,
-                             analytical_solutions=analytical_solution
-                             )
+        report = ReportMaker(
+            nn_models,
+            loss_train,
+            loss_valid,
+            main_domain,
+            analytical_solutions=analytical_solution,
+        )
         (
             self.valid_domain,
             self.approximation,

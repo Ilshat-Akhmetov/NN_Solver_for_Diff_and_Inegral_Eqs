@@ -6,6 +6,7 @@ from .EquationClass import AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
 import numpy as np
 from pandas import DataFrame
+from .utilities import torch_to_numpy
 
 
 class ReportMaker:
@@ -20,17 +21,19 @@ class ReportMaker:
             List[Callable[[torch.tensor], torch.tensor]],
             Callable[[torch.tensor], torch.tensor],
         ] = None,
-        main_eq_residuals: Callable = None
+        main_eq_residuals: Callable = None,
     ):
-        if not isinstance(analytical_solutions, list) and analytical_solutions is not None:
+        if (
+            not isinstance(analytical_solutions, list)
+            and analytical_solutions is not None
+        ):
             self.analytical_solutions = [analytical_solutions]
         else:
             self.analytical_solutions = analytical_solutions
         self.nn_models = nn_models
-        (nn_model.eval() for nn_model in self.nn_models)
-        self.loss_history_train = self.torch_to_numpy(loss_history_train)
-        self.loss_history_valid = self.torch_to_numpy(loss_history_valid)
         self.domain = domain
+        self.loss_history_train = torch_to_numpy(loss_history_train)
+        self.loss_history_valid = torch_to_numpy(loss_history_valid)
         num_epochs = len(self.loss_history_train)
         self.epochs = torch.arange(num_epochs)
         self.compare_two_functions = compare_to_functions
@@ -38,73 +41,80 @@ class ReportMaker:
         self.main_eq_residuals = main_eq_residuals
         if not isinstance(self.main_eq_residuals, list):
             self.main_eq_residuals = [self.main_eq_residuals]
-    @staticmethod
-    def torch_to_numpy(arr: torch.tensor) -> np.array:
-        return arr.cpu().detach().numpy()
-
-    @staticmethod
-    def get_func_value(funcs, domain: List[torch.tensor]) -> torch.tensor:
-        result = torch.zeros((len(funcs), *domain[0].shape))
-        for i, func in enumerate(funcs):
-            result[i] = func(*domain)
-        return result
 
     def get_domain_target(
-        self, domain_data: str = "train"
+        self, domain_data: str = "train", offset: float = 1e-2
     ) -> (torch.tensor, torch.tensor, torch.tensor):
-        assert domain_data in ["train", "valid"]
-        if domain_data == "train":
-            domain: list = self.domain.get_domain_copy('train')
-        else:
-            domain: list = self.domain.get_domain_copy('valid')
-        appr_val = ReportMaker.get_func_value(self.nn_models, domain)
-        appr_val = ReportMaker.torch_to_numpy(appr_val)
-        if self.analytical_solutions is not None:
-            analytical_val = ReportMaker.get_func_value(self.analytical_solutions, domain)
-            analytical_val = ReportMaker.torch_to_numpy(analytical_val)
-        else:
-            analytical_val = None
-        domain = [ReportMaker.torch_to_numpy(domain_part) for domain_part in domain]
+        return self.domain.get_domain_and_target(
+            domain_data, offset, self.nn_models, self.analytical_solutions
+        )
 
-
-        return domain, appr_val, analytical_val
-
-    def plot_abs_residual_distr(self, phase: str='train') -> None:
-        if self.main_eq_residuals[0] is None:
-            raise ValueError("You have to provide main equation in residual form")
-        assert phase in ['train', 'test'], "datarray may be only train or valid"
-        if phase == 'train':
-            title = "abs res value on train distr"
-            offset = 1e-2
-            domain = self.domain.get_domain_copy(offset=offset)
-        else:
-            title = "abs res value on valid distr"
-            domain = self.domain.get_domain_copy('valid')
+    def get_residuals_values(self, phase: str = "train", offset: float = 1e-2):
+        title = "abs res value on {} distr".format(phase)
+        domain = self.domain.get_domain_copy(phase, offset=offset)
         n = len(self.main_eq_residuals)
         residuals = torch.zeros((n, *domain[0].shape))
         zero_arr = np.zeros((n, *domain[0].shape))
         for i in range(n):
             residuals[i] = self.main_eq_residuals[i](*domain, *self.nn_models)
-        residuals = self.torch_to_numpy(residuals)
+        residuals = torch_to_numpy(residuals)
         for i in range(len(domain)):
-            domain[i] = self.torch_to_numpy(domain[i])
+            domain[i] = torch_to_numpy(domain[i])
         abs_residuals = FunctionErrorMetrics.calculate_absolute_error(
             residuals, zero_arr
         )
-        self.domain.plot_error_distribution(domain, abs_residuals, title)
+        return domain, abs_residuals, title
 
+    def plot_abs_residual_distr(
+        self, phase: str = "train", figsize: tuple = (9, 8), offset: float = 1e-2
+    ) -> None:
+        if self.main_eq_residuals[0] is None:
+            raise ValueError("You have to provide main equation in residual form")
+        assert phase in ["train", "valid"], "data array may be only train or valid"
+        domain, abs_residuals, title = self.get_residuals_values(phase, offset)
+        self.domain.plot_error_distribution(
+            domain, abs_residuals, title, figsize=figsize
+        )
 
-    def print_loss_history(self, phase: str = "train"):
+    def print_loss_history(self, phase: str = "train", figsize: tuple = (9, 8)) -> None:
+        """
+        This method plots loss history of NN's fitting to the given equation
+        :param phase: str: phase of loss history you want to plot. It can be either train or valid
+        :param figsize: str: size of the plot. must be a tuple
+        :return: None
+        """
         assert phase in ["train", "valid"]
         if phase == "train":
             loss = self.loss_history_train
         else:
             loss = self.loss_history_valid
         self.plot_1d_function(
-            self.epochs, loss, "Max abs residual value on train", "epoch", "abs value"
+            self.epochs,
+            loss,
+            "Max abs residual value on {}".format(phase),
+            "epoch",
+            "abs value",
+            figsize=figsize,
         )
 
-    def compare_appr_with_analytical(self) -> None:
+    def plot_abs_error_history(
+        self,
+        abs_error: np.ndarray,
+        phase: str = "train",
+        figsize: tuple = (9, 8),
+    ) -> None:
+        self.plot_1d_function(
+            self.epochs,
+            abs_error,
+            "Max abs error max|appr(x)-u(x)| on {}".format(phase),
+            "epoch",
+            "abs value",
+            figsize=figsize,
+        )
+
+    def compare_appr_with_analytical(
+        self, figsize: tuple = (9, 8), phase: str = "train", offset=1e-2
+    ) -> None:
         if self.analytical_solutions is None:
             raise ValueError(
                 "You have to provide analytical solution to compare it with the approximation"
@@ -113,15 +123,20 @@ class ReportMaker:
             train_domain,
             nn_approximation_train,
             analytical_solution_train,
-        ) = self.get_domain_target()
+        ) = self.get_domain_target(offset=offset)
         (
             valid_domain,
             nn_approximation_valid,
             analytical_solution_valid,
-        ) = self.get_domain_target("valid")
+        ) = self.get_domain_target("valid", offset=offset)
         abs_error_train = FunctionErrorMetrics.calculate_absolute_error(
             analytical_solution_train, nn_approximation_train
         )
+
+        if self.main_eq_residuals[0] is not None:
+            _, residuals, __ = self.get_residuals_values(phase, offset)
+            max_res_val = np.max(np.abs(residuals))
+            print("Max residual value |R[NN]| on {}: {}".format(phase, max_res_val))
         print("Comparison of approximation and analytical solution:")
         print(
             "Train max absolute error |Appr(x)-y(x)|: {}".format(
@@ -162,9 +177,9 @@ class ReportMaker:
                 self.loss_history_train[-1]
             )
         )
-
-        self.domain.plot_error_distribution(train_domain, abs_error_train)
-
+        self.domain.plot_error_distribution(
+            train_domain, abs_error_train, figsize=figsize
+        )
         if self.compare_two_functions is not None:
             self.compare_two_functions(
                 valid_domain,
@@ -173,18 +188,15 @@ class ReportMaker:
                 "Compare True func Vs Approximation",
                 "Analytical sol",
                 "Approximation",
+                figsize=figsize,
             )
-
 
     def print_comparison_table(
         self, domain_data: str = "train", filename="comparison.csv"
     ) -> None:
-        if domain_data == "train":
-            print("train data")
-            domain, appr_val, analytical_val = self.get_domain_target()
-        else:
-            print("valid data")
-            domain, appr_val, analytical_val = self.get_domain_target("valid")
+        assert domain_data in ["valid", "train"]
+        print("{} data".format(domain_data))
+        domain, appr_val, analytical_val = self.get_domain_target(domain_data)
 
         data = dict()
         dimensionality = len(domain)
@@ -205,7 +217,9 @@ class ReportMaker:
                     data["Analytical_F{}".format(i + 1)] = np.ravel(analytical_val[i])
                 data["ANN_F{}".format(i + 1)] = np.ravel(appr_val[i])
         if self.analytical_solutions is not None:
-            error = FunctionErrorMetrics.calculate_absolute_error(appr_val, analytical_val)
+            error = FunctionErrorMetrics.calculate_absolute_error(
+                appr_val, analytical_val
+            )
             data["Abs error"] = np.ravel(error)
         df = DataFrame(data=data)
         print(df)

@@ -1,9 +1,9 @@
-## An application of a neural network for solving ODEs and integral equations. 
+## An application for numerical solving ODEs and integral equations with artificial neural networks.
 
-The main idea is to minimize sum of residual's squares for each boundary or initial condition
-and for main equation on its domain. 
+The main idea is to minimize the sum of residual squares for each boundary or initial condition
+and for the main equation on its domain. 
 
-For example, if we have equation 
+For example, if we have the equation 
 
 $$ u' +2xu = 5, x \in [0,1] $$
 
@@ -13,13 +13,16 @@ $$ u'(0) = 3 $$
 
 then the proposed algorithm will try to find a neural network minimizing the following expression:
 
-$$ argmin_{NN}((NN(x)' +2xNN(x) - 5)^2 + (NN(0)' - 3)^2) $$
+$$ argmin_{NN}((NN(x)' +2xNN(x) - 5)^2 + \alpha (NN(0)' - 3)^2) $$
 
-on equation's domain. So we approximate unknown function **u(x)** with a neural network (**NN(x)**). 
-For integral equations idea essentially is the same. 
-As you might guess this method tries to minimize sum of squares of residuals for main equation and 
-boundary conditions simultaneously at each epoch, 
-so eventually NN-approximator becomes quite accurate at representing unknown function **u**.
+Here coefficient $\alpha$ defines how much attention 
+should be paid to boundary condition during training. 
+This way we approximate unknown function **u(x)** with a neural network (**NN(x)**). 
+For integral equations idea actually is the same. 
+As you might guess, this method tries to minimize the sum of squares of residuals for the domain
+of the main equation and boundary conditions simultaneously at each epoch.
+It is assumed that if residual square gets close to zero, then
+NN-approximation becomes quite accurate at representing unknown function **u**.
 
 In **SourceCode** you can take a look at code and find out how classes and methods are implemented.
 
@@ -36,11 +39,8 @@ application for solving system of ODEs.
 In **JupyterPresentations\Solving_2D_PDE_with_NN.ipynb** you can see 
 how to apply this program for solving 2D equations
 
-Finally, in **JupyterPresentations\Solving_Integro_differential_eqs_with_NN.ipynb** you can see how NN's can
- be applied to solving integro-differential equations.
-
-This version is rather a prototype than a finished project. In the future I hope to expand this program on 2 and 3
-and 3 dimensional cases.
+This version is rather a prototype than a finished project. In the future, maybe I will expand this program for three 
+and 4-dimensional cases
 
 How to use this?
 
@@ -51,46 +51,39 @@ with analytical solution:
 analytical solution: $$y(x) = sin(\pi x) + \frac{2}{\pi} $$
 $$x \in [0, 1] $$
 
-First we need to import everything we need for work
-```python
-import torch
-import sys
-sys.path.append('..')
-import SourceCode
+Here is an example of how this equation can be solved with this repo
 
-import torch
-from SourceCode.EquationClass import MainEquationClass
-from SourceCode.DomainClass import OneDimensionalSimpleDomain
-from SourceCode.IntegralEquations import IntegralEquations
-from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
-from SourceCode.ReportMaker import ReportMaker
-from math import pi
-```
-then lets determine what are we going to solve. Provide equations in residual form!
 ```python
+import torch
+from SourceCode import *
+
 left_border = 0
 right_border = 1
 n_points = 20
 integration_func = lambda curr_v, int_domain, nn_model: nn_model(int_domain)
 main_eq_res = (lambda curr_v, nn_model: nn_model(curr_v) -
-                                            torch.sin(pi * curr_v) - 
-               0.5 * IntegralEquations.calculateFredholmEquation1D(
-                                                        integration_func,
-                                                        nn_model,
-                                                        curr_v,
-                                                        left_border,
-                                                        right_border,
-                                                        n_points))
+                                        torch.sin(pi * curr_v) -
+                                        0.5 * IntegralEquations.calculate_fredholm_equation_1d(
+ integration_func,
+ nn_model,
+ curr_v,
+ left_border,
+ right_border,
+ n_points))
 main_domain = OneDimensionalSimpleDomain(0, 1, n_points)
 
 main_eq = MainEquationClass(main_domain, main_eq_res)
 n_epochs = 10
-nn_ode_solver = TrainerForNNEquationSolver(main_eq, n_epochs)
-loss_train, loss_valid, nn_model = nn_ode_solver.fit()
-```
-to look at loss history (here loss is a max abs value of residual on domain) or to compare analytical solution and nn_approximation you may use this:
+models = NNGenerator.generate_models(
+            nn_count=1, nn_type='ResMLP'
+        )
 
-```python
+nn_ode_solver = TrainerForNNEquationSolver(
+            main_eq, n_epochs=n_epochs, nn_models=models
+)
+loss_train, loss_valid, nn_model = nn_ode_solver.fit()
+
+# if you want to show max residual value on domain or compare with the exact solution
 analytical_solution = lambda x_var: torch.sin(pi * x_var) + 2 / pi
 report = ReportMaker(nn_model,
                          loss_train,
@@ -102,8 +95,10 @@ report = ReportMaker(nn_model,
 report.print_loss_history()
 report.compare_appr_with_analytical()
 ```
+
+
 **Example 2**. Simple system of 2 ODEs. Here we also specify an approximation 
-so that it satisfies the boundary conditions and we don't have to specify them exmplicitly.
+so that it satisfies the boundary conditions, and we don't have to specify them exmplicitly.
 $$x'= -y $$
 $$y' = x + cos(t) $$
 $$x(0) = 0$$ 
@@ -115,16 +110,7 @@ $$apprY(t) = t*nn_2(t) $$
 
 ```python
 import torch
-import sys
-sys.path.append('..')
-import SourceCode
-
-import torch
-from SourceCode.utilities import nth_derivative, plot_two_curves
-from SourceCode.EquationClass import MainEquationClass
-from SourceCode.DomainClass import OneDimensionalSimpleDomain
-from SourceCode.TrainerForNNEquationSolver import TrainerForNNEquationSolver
-from SourceCode.ReportMaker import ReportMaker
+from SourceCode import *
 
 
 n_epochs = 10
@@ -149,10 +135,13 @@ boundary_satisfying_models = [
     ]
 
 n_epochs = 20
-nn_ode_solver = TrainerForNNEquationSolver(main_eq,
-                                               n_epochs=n_epochs,
-                                               act_func=torch.tanh,
-                                               boundary_satisfying_models=boundary_satisfying_models)
+models = NNGenerator.generate_models(
+            nn_count=2, boundary_satisfying_models=boundary_satisfying_models
+        )
+
+nn_ode_solver = TrainerForNNEquationSolver(
+            main_eq, n_epochs=n_epochs, nn_models=models
+)
 loss_train, loss_valid, nn_models = nn_ode_solver.fit()
 
 analytical_solution1 = lambda x: -1 / 2 * x * torch.sin(x)
@@ -167,8 +156,11 @@ report = ReportMaker(nn_models,
                          )
 report.print_loss_history()
 report.compare_appr_with_analytical()
-
 ```
 
+Currently, there are 3 types of NN architectures available: MLP, Residual-MLP and KAN. 
+In NNGenerator you can choose one of them as nn_type parameter (default mlp).
+Residual-MLP is essentially the same MLP but with residual connections between its blocks. 
+KAN implementation was taken from this repo https://github.com/Blealtan/efficient-kan.
 
 

@@ -33,28 +33,48 @@ class OnePointInitialCondition(InitialCondition):
 class TwoDimInitialCondition(InitialCondition):
     def __init__(
         self,
-        const_var: Union[int, float],
-        non_const_var_left: Union[int, float],
-        non_const_var_right: Union[int, float],
+        non_const_var_left_value: Union[int, float],
+        non_const_var_right_value: Union[int, float],
         non_const_var_size: int,
         equation: Callable[[torch.tensor, torch.tensor], torch.tensor],
+        const_var_value: Union[int, float],
         const_var_ind: int = 1,
     ):
         assert const_var_ind in (1, 2)
-        self.const_var = torch.Tensor([const_var])
-        self.const_var.requires_grad = True
-        self.non_const_domain = torch.linspace(
-            non_const_var_left, non_const_var_right, non_const_var_size
-        )
-        self.non_const_domain.requires_grad = True
-        self.size = non_const_var_size
         self.equation = equation
-        if const_var_ind == 1:
-            self.xm, self.ym = torch.meshgrid((self.const_var, self.non_const_domain))
-        else:
-            self.xm, self.ym = torch.meshgrid((self.non_const_domain, self.const_var))
+        self.size = non_const_var_size
+        self.xm, self.ym = self.generate_boundary_points(
+            non_const_var_left_value,
+            non_const_var_right_value,
+            non_const_var_size,
+            const_var_value,
+            const_var_ind,
+        )
 
-    def get_boundary_residuals(self, nn_models: List[Callable[[torch.tensor, torch.tensor], torch.tensor]]) -> torch.tensor:
+    def generate_boundary_points(
+        self,
+        non_const_var_left_value: Union[int, float],
+        non_const_var_right_value: Union[int, float],
+        non_const_var_size: int,
+        const_var_value: Union[int, float],
+        const_var_ind: int = 1,
+    ):
+        const_var = torch.Tensor([const_var_value])
+        non_const_domain = torch.linspace(
+            non_const_var_left_value, non_const_var_right_value, non_const_var_size
+        )
+
+        if const_var_ind == 1:
+            xm, ym = torch.meshgrid((const_var, non_const_domain), indexing='ij')
+        else:
+            xm, ym = torch.meshgrid((non_const_domain, const_var), indexing='ij')
+        xm.requires_grad = True
+        ym.requires_grad = True
+        return xm, ym
+
+    def get_boundary_residuals(
+        self, nn_models: List[Callable[[torch.tensor, torch.tensor], torch.tensor]]
+    ) -> torch.tensor:
         return self.equation(self.xm, self.ym, *nn_models)
 
     def get_domain_size(self):

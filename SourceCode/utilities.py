@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from typing import List, Union
+import random
 
 
 def torch_to_numpy(arr: torch.tensor) -> np.array:
@@ -9,11 +10,11 @@ def torch_to_numpy(arr: torch.tensor) -> np.array:
 
 
 def gen_2d_points_line(
-    non_const_var_left: Union[int, float],
-    non_const_var_right: Union[int, float],
-    non_const_var_size: int,
-    const_var_value: Union[int, float],
-    const_var_ind: int = 1,
+        non_const_var_left: Union[int, float],
+        non_const_var_right: Union[int, float],
+        non_const_var_size: int,
+        const_var_value: Union[int, float],
+        const_var_ind: int = 1,
 ) -> tuple:
     assert const_var_ind in (1, 2)
     const_var = torch.Tensor([const_var_value])
@@ -30,12 +31,12 @@ def gen_2d_points_line(
 
 
 def plot_1d_function(
-    x_value: np.array,
-    y_value: np.array,
-    title: str,
-    x_label: str,
-    y_label: str,
-    figsize: tuple = (10, 12),
+        x_value: np.array,
+        y_value: np.array,
+        title: str,
+        x_label: str,
+        y_label: str,
+        figsize: tuple = (10, 12),
 ) -> None:
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(title)
@@ -49,13 +50,13 @@ def plot_1d_function(
 
 
 def plot_two_curves(
-    x_value: List[np.array],
-    f1_value: np.array,
-    f2_value: np.array,
-    title: str,
-    f1_label: str,
-    f2_label: str,
-    figsize: tuple = (10, 12),
+        x_value: List[np.array],
+        f1_value: np.array,
+        f2_value: np.array,
+        title: str,
+        f1_label: str,
+        f2_label: str,
+        figsize: tuple = (10, 12),
 ) -> None:
     fig = plt.figure("Parametric curve", figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
@@ -85,13 +86,13 @@ def plot_two_curves(
 
 
 def plot_two_1d_functions(
-    x_value: List[np.array],
-    f1_value: np.array,
-    f2_value: np.array,
-    title: str,
-    f1_label: str,
-    f2_label: str,
-    figsize: tuple = (10, 12),
+        x_value: List[np.array],
+        f1_value: np.array,
+        f2_value: np.array,
+        title: str,
+        f1_label: str,
+        f2_label: str,
+        figsize: tuple = (10, 12),
 ) -> None:
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(title)
@@ -109,13 +110,13 @@ def plot_two_1d_functions(
 
 
 def plot_two_2d_functions(
-    domain: List[np.array],
-    f1_value: np.array,
-    f2_value: np.array,
-    title: str,
-    f1_label: str,
-    f2_label: str,
-    figsize: tuple = (10, 12),
+        domain: List[np.array],
+        f1_value: np.array,
+        f2_value: np.array,
+        title: str,
+        f1_label: str,
+        f2_label: str,
+        figsize: tuple = (10, 12),
 ) -> None:
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
@@ -140,7 +141,7 @@ def plot_two_2d_functions(
 
 
 def nth_derivative(
-    nn_model_value: torch.tensor, variable: torch.tensor, derivatives_degree: int
+        nn_model_value: torch.tensor, variable: torch.tensor, derivatives_degree: int
 ) -> torch.tensor:
     derivative_value = nn_model_value
     for i in range(derivatives_degree):
@@ -152,3 +153,38 @@ def nth_derivative(
             retain_graph=True,
         )[0]
     return derivative_value
+
+
+def set_seed(seed: int = 42) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+def get_func_value(funcs, domain: List[torch.tensor]) -> torch.tensor:
+    result = torch.zeros((len(funcs), *domain[0].shape))
+    for i, func in enumerate(funcs):
+        result[i] = func(*domain)
+    return result
+
+
+def get_domain_target(
+        domain,
+        nn_models,
+        domain_data: str = "train",
+        offset: float = 1e-2,
+        analytical_solutions=None
+) -> (torch.tensor, torch.tensor, torch.tensor):
+    assert domain_data in ["train", "valid"]
+    domain: list = domain.get_domain_copy(domain_data, offset)
+    appr_val = get_func_value(nn_models, domain)
+    appr_val = torch_to_numpy(appr_val)
+    if analytical_solutions is not None:
+        analytical_val = get_func_value(analytical_solutions, domain)
+        analytical_val = torch_to_numpy(analytical_val)
+    else:
+        analytical_val = None
+    domain = [torch_to_numpy(domain_part) for domain_part in domain]
+    return domain, appr_val, analytical_val

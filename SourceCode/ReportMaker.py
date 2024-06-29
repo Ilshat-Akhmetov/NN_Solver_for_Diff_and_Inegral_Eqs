@@ -6,7 +6,7 @@ from .EquationClass import AbstractDomain
 from .FunctionErrorMetrics import FunctionErrorMetrics
 import numpy as np
 from pandas import DataFrame
-from .utilities import torch_to_numpy
+from .utilities import torch_to_numpy, get_domain_target
 
 
 class ReportMaker:
@@ -42,12 +42,6 @@ class ReportMaker:
         if not isinstance(self.main_eq_residuals, list):
             self.main_eq_residuals = [self.main_eq_residuals]
 
-    def get_domain_target(
-        self, domain_data: str = "train", offset: float = 1e-2
-    ) -> (torch.tensor, torch.tensor, torch.tensor):
-        return self.domain.get_domain_and_target(
-            domain_data, offset, self.nn_models, self.analytical_solutions
-        )
 
     def get_residuals_values(self, phase: str = "train", offset: float = 1e-2):
         title = "abs res value on {} distr".format(phase)
@@ -123,12 +117,24 @@ class ReportMaker:
             train_domain,
             nn_approximation_train,
             analytical_solution_train,
-        ) = self.get_domain_target(offset=offset)
+        ) = get_domain_target(
+                    self.domain,
+                    self.nn_models,
+                    'train',
+                    self.domain.offset,
+                    self.analytical_solutions
+                )
         (
             valid_domain,
             nn_approximation_valid,
             analytical_solution_valid,
-        ) = self.get_domain_target("valid", offset=offset)
+        ) = get_domain_target(
+                    self.domain,
+                    self.nn_models,
+                    'valid',
+                    self.domain.offset,
+                    self.analytical_solutions
+                )
         abs_error_train = FunctionErrorMetrics.calculate_absolute_error(
             analytical_solution_train, nn_approximation_train
         )
@@ -191,12 +197,20 @@ class ReportMaker:
                 figsize=figsize,
             )
 
+
     def print_comparison_table(
         self, domain_data: str = "train", filename="comparison.csv"
     ) -> None:
         assert domain_data in ["valid", "train"]
+        assert self.analytical_solutions is not None
         print("{} data".format(domain_data))
-        domain, appr_val, analytical_val = self.get_domain_target(domain_data)
+        domain, appr_val, analytical_val = get_domain_target(
+                    self.domain,
+                    self.nn_models,
+                    domain_data,
+                    self.domain.offset,
+                    self.analytical_solutions
+                )
 
         data = dict()
         dimensionality = len(domain)

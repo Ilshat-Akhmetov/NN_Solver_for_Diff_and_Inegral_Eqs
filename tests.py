@@ -90,7 +90,8 @@ if __name__ == "__main__":
 
         n_epochs = 50
         models = NNGenerator.generate_models(
-            nn_count=1, inp_dim=2, boundary_satisfying_models=boundary_satisfying_models
+            nn_count=1, inp_dim=2, boundary_satisfying_models=boundary_satisfying_models,
+            nn_type='BasisFuncMLP'
         )
 
         nn_ode_solver = TrainerForNNEquationSolver(
@@ -255,5 +256,100 @@ if __name__ == "__main__":
         report.compare_appr_with_analytical(offset=0.01)
         report.print_comparison_table()
 
+    def test_5():
+        left_border = 0
+        right_border = 1
+        n_points = 20
+        integration_func = lambda curr_v, int_domain, nn_model: nn_model(int_domain)
+        main_eq_res = (lambda curr_v, nn_model: nn_model(curr_v) -
+                                                torch.sin(pi * curr_v) -
+                                                0.5 * IntegralEquations.calculate_fredholm_equation_1d_gauss_quadratures(
+            integration_func,
+            nn_model,
+            curr_v,
+            left_border,
+            right_border))
+        main_domain = OneDimensionalSimpleDomain(0, 1, n_points, offset=0)
 
-test_3()
+        main_eq = MainEquationClass(main_domain, main_eq_res)
+        n_epochs = 40
+        nn_params = {'layers_hidden': [1, 10, 10, 1]}
+        models = NNGenerator.generate_models(
+            nn_count=1,
+            nn_params=nn_params,
+            nn_type='KAN'
+        )
+
+        nn_ode_solver = TrainerForNNEquationSolver(
+            main_eq, n_epochs=n_epochs,
+            nn_models=models,
+            lr=0.3,
+        )
+        loss_train, loss_valid, nn_model = nn_ode_solver.fit()
+        analytical_solution = lambda x_var: torch.sin(pi * x_var) + 2 / pi
+        report = ReportMaker(nn_model,
+                             loss_train,
+                             loss_valid,
+                             main_domain,
+                             compare_to_functions=plot_two_1d_functions,
+                             analytical_solutions=analytical_solution,
+                             main_eq_residuals=main_eq_res
+                             )
+        report.print_loss_history()
+        report.compare_appr_with_analytical(offset=0)
+        report.plot_abs_residual_distr(offset=0)
+
+    def test_6():
+        left_bound = 0
+        right_bound = 1
+        main_eq_residual = (
+            lambda x, nn_model: nth_derivative(nn_model(x), x, 2)
+                                + 0.2 * nth_derivative(nn_model(x), x, 1)
+                                + nn_model(x)
+                                + 0.2 * torch.exp(-x / 5) * torch.cos(x)
+        )
+        n_points = 10
+
+        main_domain = OneDimensionalSimpleDomain(left_bound, right_bound, n_points)
+
+        first_init_cond_res = lambda x, nn_model: nn_model(x) - 0
+        first_init_cond = OnePointInitialCondition(left_bound, first_init_cond_res)
+
+        second_init_cond_res = lambda x, nn_model: nn_model(x) - torch.sin(
+            torch.Tensor([1])
+        ) * torch.exp(torch.Tensor([-0.2]))
+        second_init_cond = OnePointInitialCondition(right_bound, second_init_cond_res)
+
+        boundary_conditions = [first_init_cond, second_init_cond]
+
+        main_eq = MainEquationClass(main_domain, main_eq_residual, boundary_conditions)
+
+        n_epochs = 20
+        nn_params = {'hidden_dim': 20, 'num_hidden_layers': 2}
+        models = NNGenerator.generate_models(
+            nn_count=1,
+            nn_params=nn_params,
+            nn_type='BasisFuncMLP'
+        )
+
+        nn_ode_solver = TrainerForNNEquationSolver(
+            main_eq, n_epochs=n_epochs,
+            nn_models=models,
+            lr=0.2,
+        )
+        analytical_solution = lambda x: torch.exp(-x / 5) * torch.sin(x)
+        loss_train, loss_valid, abs_error_train, abs_error_valid, nn_model = \
+            nn_ode_solver.fit_with_abs_err_history(main_domain, analytical_sols=[analytical_solution])
+        report = ReportMaker(nn_model,
+                             loss_train,
+                             loss_valid,
+                             main_domain,
+                             compare_to_functions=plot_two_1d_functions,
+                             analytical_solutions=analytical_solution,
+                             main_eq_residuals=main_eq_residual
+                             )
+        report.print_loss_history()
+        report.compare_appr_with_analytical()
+
+
+test_6()

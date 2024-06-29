@@ -2,7 +2,6 @@ import abc
 import torch
 from numpy import array as np_array
 import matplotlib.pyplot as plt
-from .utilities import torch_to_numpy
 
 from typing import List, Union, Callable
 from .NeuralNetworkFunction import (
@@ -41,33 +40,6 @@ class AbstractDomain(abc.ABC):
             return self.make_train_domain(offset)
         else:
             return self.make_valid_domain()
-
-    @staticmethod
-    def get_func_value(funcs, domain: List[torch.tensor]) -> torch.tensor:
-        result = torch.zeros((len(funcs), *domain[0].shape))
-        for i, func in enumerate(funcs):
-            result[i] = func(*domain)
-        return result
-
-    def get_domain_and_target(
-        self,
-        domain_data: str = "train",
-        offset: float = 1e-2,
-        nn_models: List[Callable] = None,
-        analytical_solutions: List[Callable] = None,
-    ) -> (torch.tensor, torch.tensor, torch.tensor):
-        assert domain_data in ["train", "valid"]
-        domain: list = self.get_domain_copy(domain_data, offset)
-        appr_val = AbstractDomain.get_func_value(nn_models, domain)
-        appr_val = torch_to_numpy(appr_val)
-        if analytical_solutions is not None:
-            analytical_val = AbstractDomain.get_func_value(analytical_solutions, domain)
-            analytical_val = torch_to_numpy(analytical_val)
-        else:
-            analytical_val = None
-        domain = [torch_to_numpy(domain_part) for domain_part in domain]
-
-        return domain, appr_val, analytical_val
 
 
 class OneDimensionalSimpleDomain(AbstractDomain):

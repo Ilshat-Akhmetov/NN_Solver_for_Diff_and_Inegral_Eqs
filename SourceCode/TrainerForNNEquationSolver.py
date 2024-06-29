@@ -1,12 +1,12 @@
 import torch
 from .EquationClass import AbstractEquation
 import numpy as np
-from .SeedGen import SeedGen
+from .utilities import set_seed, get_domain_target
 from typing import List, Callable
 from .DomainClass import AbstractDomain
 
 
-class TrainerForNNEquationSolver(SeedGen):
+class TrainerForNNEquationSolver:
     def __init__(
         self,
         main_eq: AbstractEquation,
@@ -16,7 +16,6 @@ class TrainerForNNEquationSolver(SeedGen):
         seed: int = 77,
         optimizer_type: str = "lbfgs",
     ):
-        TrainerForNNEquationSolver.set_seed(seed)
         self.main_eq = main_eq
         self.nn_models = nn_models
         model_params = []
@@ -42,7 +41,7 @@ class TrainerForNNEquationSolver(SeedGen):
     def fit(
         self, verbose: bool = False
     ) -> (torch.tensor, torch.tensor, Callable[[torch.tensor], torch.tensor]):
-        self.set_seed(self.seed)
+        set_seed(self.seed)
         loss_train = torch.zeros(self.n_epochs)
         loss_valid = torch.zeros(self.n_epochs)
         for epoch in range(self.n_epochs):
@@ -67,7 +66,7 @@ class TrainerForNNEquationSolver(SeedGen):
         analytical_sols: List[Callable],
         verbose: bool = False,
     ) -> (torch.tensor, torch.tensor, Callable[[torch.tensor], torch.tensor]):
-        self.set_seed(self.seed)
+        set_seed(self.seed)
         res_abs_loss_train = torch.zeros(self.n_epochs)
         res_abs_loss_valid = torch.zeros(self.n_epochs)
         abs_error_train = np.zeros(self.n_epochs)
@@ -83,11 +82,12 @@ class TrainerForNNEquationSolver(SeedGen):
                     res_abs_loss_train[epoch] = epoch_loss
                 else:
                     res_abs_loss_valid[epoch] = epoch_loss
-                _, appr_val, analytical_val = domain.get_domain_and_target(
+                _, appr_val, analytical_val = get_domain_target(
+                    domain,
+                    self.nn_models,
                     phase,
                     domain.offset,
-                    nn_models=self.nn_models,
-                    analytical_solutions=analytical_sols,
+                    analytical_sols,
                 )
                 if phase == "train":
                     abs_error_train[epoch] = np.max(np.abs(appr_val - analytical_val))

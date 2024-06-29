@@ -13,8 +13,6 @@ class ReportMaker:
     def __init__(
         self,
         nn_models: List[Callable[[torch.tensor], torch.tensor]],
-        loss_history_train: torch.Tensor,
-        loss_history_valid: torch.Tensor,
         domain: AbstractDomain,
         compare_to_functions: Callable = plot_two_1d_functions,
         analytical_solutions: Union[
@@ -32,12 +30,7 @@ class ReportMaker:
             self.analytical_solutions = analytical_solutions
         self.nn_models = nn_models
         self.domain = domain
-        self.loss_history_train = torch_to_numpy(loss_history_train)
-        self.loss_history_valid = torch_to_numpy(loss_history_valid)
-        num_epochs = len(self.loss_history_train)
-        self.epochs = torch.arange(num_epochs)
         self.compare_two_functions = compare_to_functions
-        self.plot_1d_function = plot_1d_function
         self.main_eq_residuals = main_eq_residuals
         if not isinstance(self.main_eq_residuals, list):
             self.main_eq_residuals = [self.main_eq_residuals]
@@ -70,41 +63,22 @@ class ReportMaker:
             domain, abs_residuals, title, figsize=figsize
         )
 
-    def print_loss_history(self, phase: str = "train", figsize: tuple = (9, 8)) -> None:
-        """
-        This method plots loss history of NN's fitting to the given equation
-        :param phase: str: phase of loss history you want to plot. It can be either train or valid
-        :param figsize: str: size of the plot. must be a tuple
-        :return: None
-        """
-        assert phase in ["train", "valid"]
-        if phase == "train":
-            loss = self.loss_history_train
-        else:
-            loss = self.loss_history_valid
-        self.plot_1d_function(
-            self.epochs,
-            loss,
-            "Max abs residual value on {}".format(phase),
-            "epoch",
-            "abs value",
-            figsize=figsize,
-        )
-
-    def plot_abs_error_history(
+    def plot_error_history(
         self,
-        abs_error: np.ndarray,
-        phase: str = "train",
+        error_history: np.ndarray,
+        title: str = 'Max error on train',
         figsize: tuple = (9, 8),
     ) -> None:
-        self.plot_1d_function(
-            self.epochs,
-            abs_error,
-            "Max abs error max|appr(x)-u(x)| on {}".format(phase),
+        epochs = torch.arange(len(error_history))
+        plot_1d_function(
+            epochs,
+            error_history,
+            title,
             "epoch",
             "abs value",
             figsize=figsize,
         )
+        print("Value at last epoch: {}".format(error_history[-1]))
 
     def compare_appr_with_analytical(
         self, figsize: tuple = (9, 8), phase: str = "train", offset=1e-2
@@ -175,12 +149,6 @@ class ReportMaker:
                 * FunctionErrorMetrics.calculate_mean_average_precision_error(
                     analytical_solution_valid, nn_approximation_valid
                 )
-            )
-        )
-
-        print(
-            "Max abs value of residual on train at last epoch: {} ".format(
-                self.loss_history_train[-1]
             )
         )
         self.domain.plot_error_distribution(

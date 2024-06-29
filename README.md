@@ -56,6 +56,7 @@ Here is an example of how this equation can be solved with this repo
 ```python
 import torch
 from SourceCode import *
+from math import pi
 
 left_border = 0
 right_border = 1
@@ -92,7 +93,6 @@ report = ReportMaker(nn_model,
                          compare_to_functions=plot_two_1d_functions,
                          analytical_solutions=analytical_solution
                          )
-report.print_loss_history()
 report.compare_appr_with_analytical()
 ```
 
@@ -154,11 +154,12 @@ report = ReportMaker(nn_models,
                          compare_to_functions=plot_two_curves,
                          analytical_solutions=analytical_solutions
                          )
-report.print_loss_history()
 report.compare_appr_with_analytical()
 ```
 
-Currently, there are 3 types of NN architectures available: MLP, Residual-MLP and KAN. 
+Currently, there are 4 types of NN architectures available: MLP, Residual-MLP, BasisFuncMLP and KAN. 
+BasisFuncMLP tries to approximate unknown function by a linear combination of some basis functions. 
+In fact, at each domain point it predicts coefficients for these basis functions.
 In NNGenerator you can choose one of them as nn_type parameter (default mlp).
 Residual-MLP is essentially the same MLP but with residual connections between its blocks. 
 KAN implementation was taken from this repo https://github.com/Blealtan/efficient-kan.

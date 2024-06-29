@@ -50,15 +50,12 @@ if __name__ == "__main__":
         analytical_solutions = [analytical_solution1, analytical_solution2]
         report = ReportMaker(
             nn_models,
-            loss_train,
-            loss_valid,
             main_domain,
             analytical_solutions=analytical_solutions,
             compare_to_functions=plot_two_curves,
             main_eq_residuals=main_eq_residuals,
         )
         report.plot_abs_residual_distr()
-        report.print_loss_history()
         report.compare_appr_with_analytical()
         report.print_comparison_table()
 
@@ -100,15 +97,12 @@ if __name__ == "__main__":
         loss_train, loss_valid, nn_models = nn_ode_solver.fit()
         report = ReportMaker(
             nn_models,
-            loss_train,
-            loss_valid,
             main_domain,
             compare_to_functions=plot_two_2d_functions,
             analytical_solutions=true_solution,
             main_eq_residuals=main_eq_residuals,
         )
         report.plot_abs_residual_distr()
-        report.print_loss_history()
         report.compare_appr_with_analytical()
         report.print_comparison_table()
 
@@ -165,15 +159,12 @@ if __name__ == "__main__":
         loss_train, loss_valid, nn_models = nn_ode_solver.fit()
         report = ReportMaker(
             nn_models,
-            loss_train,
-            loss_valid,
             main_domain,
             compare_to_functions=plot_two_2d_functions,
             analytical_solutions=true_solution,
             main_eq_residuals=main_eq_residuals,
         )
         report.plot_abs_residual_distr()
-        report.print_loss_history()
         report.compare_appr_with_analytical()
         report.print_comparison_table()
 
@@ -244,15 +235,12 @@ if __name__ == "__main__":
         loss_train, loss_valid, nn_models = nn_ode_solver.fit()
         report = ReportMaker(
             nn_models,
-            loss_train,
-            loss_valid,
             main_domain,
             compare_to_functions=plot_two_2d_functions,
             analytical_solutions=true_solution,
             main_eq_residuals=main_eq_residuals,
         )
         report.plot_abs_residual_distr(offset=0.01)
-        report.print_loss_history()
         report.compare_appr_with_analytical(offset=0.01)
         report.print_comparison_table()
 
@@ -288,14 +276,11 @@ if __name__ == "__main__":
         loss_train, loss_valid, nn_model = nn_ode_solver.fit()
         analytical_solution = lambda x_var: torch.sin(pi * x_var) + 2 / pi
         report = ReportMaker(nn_model,
-                             loss_train,
-                             loss_valid,
                              main_domain,
                              compare_to_functions=plot_two_1d_functions,
                              analytical_solutions=analytical_solution,
                              main_eq_residuals=main_eq_res
                              )
-        report.print_loss_history()
         report.compare_appr_with_analytical(offset=0)
         report.plot_abs_residual_distr(offset=0)
 
@@ -329,7 +314,7 @@ if __name__ == "__main__":
         models = NNGenerator.generate_models(
             nn_count=1,
             nn_params=nn_params,
-            nn_type='BasisFuncMLP'
+            nn_type='MLP'
         )
 
         nn_ode_solver = TrainerForNNEquationSolver(
@@ -341,14 +326,12 @@ if __name__ == "__main__":
         loss_train, loss_valid, abs_error_train, abs_error_valid, nn_model = \
             nn_ode_solver.fit_with_abs_err_history(main_domain, analytical_sols=[analytical_solution])
         report = ReportMaker(nn_model,
-                             loss_train,
-                             loss_valid,
                              main_domain,
                              compare_to_functions=plot_two_1d_functions,
                              analytical_solutions=analytical_solution,
                              main_eq_residuals=main_eq_residual
                              )
-        report.print_loss_history()
+        report.plot_error_history(loss_train)
         report.compare_appr_with_analytical()
 
 
